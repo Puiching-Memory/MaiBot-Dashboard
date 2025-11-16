@@ -217,11 +217,11 @@ schema.fields.map(field => {
 
 ## 📄 开源协议
 
-本项目基于 MIT 协议开源，详见 [LICENSE](../LICENSE) 文件。
+本项目基于 GPLv3 协议开源，详见 [LICENSE](./LICENSE) 文件。
 
 ## 👥 作者
 
-**Mai-with-u** - [GitHub](https://github.com/Mai-with-u)
+**MotricSeven** - [GitHub](https://github.com/DrSmoothl)
 
 ## 🙏 致谢
 
@@ -234,5 +234,5 @@ schema.fields.map(field => {
 ---
 
 <div align="center">
-Made with ❤️ by Mai-with-u
+Made with ❤️ by MotricSeven and Mai-with-u
 </div>
