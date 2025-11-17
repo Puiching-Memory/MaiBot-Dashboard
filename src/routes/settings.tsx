@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
 import { validateToken } from '@/lib/token-validator'
 import {
@@ -62,21 +63,23 @@ export function SettingsPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="appearance" className="mt-6">
-          <AppearanceTab />
-        </TabsContent>
+        <ScrollArea className="h-[calc(100vh-280px)] mt-6">
+          <TabsContent value="appearance" className="mt-0">
+            <AppearanceTab />
+          </TabsContent>
 
-        <TabsContent value="notifications" className="mt-6">
-          <NotificationsTab />
-        </TabsContent>
+          <TabsContent value="notifications" className="mt-0">
+            <NotificationsTab />
+          </TabsContent>
 
-        <TabsContent value="security" className="mt-6">
-          <SecurityTab />
-        </TabsContent>
+          <TabsContent value="security" className="mt-0">
+            <SecurityTab />
+          </TabsContent>
 
-        <TabsContent value="about" className="mt-6">
-          <AboutTab />
-        </TabsContent>
+          <TabsContent value="about" className="mt-0">
+            <AboutTab />
+          </TabsContent>
+        </ScrollArea>
       </Tabs>
     </div>
   )

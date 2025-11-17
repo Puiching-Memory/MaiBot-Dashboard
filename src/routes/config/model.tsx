@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Table,
   TableBody,
@@ -341,17 +342,18 @@ export function ModelConfigPage() {
           <TabsTrigger value="tasks">模型任务配置</TabsTrigger>
         </TabsList>
 
-        {/* 模型配置标签页 */}
-        <TabsContent value="models" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">
-              配置可用的模型列表
-            </p>
-            <Button onClick={() => openEditDialog(null, null)} size="sm" variant="outline">
-              <Plus className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
-              添加模型
-            </Button>
-          </div>
+        <ScrollArea className="h-[calc(100vh-320px)]">
+          {/* 模型配置标签页 */}
+          <TabsContent value="models" className="space-y-4 mt-0">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                配置可用的模型列表
+              </p>
+              <Button onClick={() => openEditDialog(null, null)} size="sm" variant="outline">
+                <Plus className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
+                添加模型
+              </Button>
+            </div>
 
           {/* 搜索框 */}
           <div className="flex items-center gap-2">
@@ -550,6 +552,7 @@ export function ModelConfigPage() {
             </div>
           )}
         </TabsContent>
+        </ScrollArea>
       </Tabs>
 
       {/* 编辑模型对话框 */}

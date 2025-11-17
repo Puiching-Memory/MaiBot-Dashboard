@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,11 +25,20 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Save, Plus, Trash2, Eye, Clock } from 'lucide-react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Save, Plus, Trash2, Eye, Clock, FileSearch } from 'lucide-react'
 import { getBotConfig, updateBotConfig, updateBotConfigSection } from '@/lib/config-api'
 import { useToast } from '@/hooks/use-toast'
 
@@ -115,6 +124,70 @@ interface LPMMKnowledgeConfig {
   embedding_dimension: number
 }
 
+interface KeywordRule {
+  keywords?: string[]
+  regex?: string[]
+  reaction: string
+}
+
+interface KeywordReactionConfig {
+  keyword_rules: KeywordRule[]
+  regex_rules: KeywordRule[]
+}
+
+interface ResponsePostProcessConfig {
+  enable_response_post_process: boolean
+}
+
+interface ChineseTypoConfig {
+  enable: boolean
+  error_rate: number
+  min_freq: number
+  tone_error_rate: number
+  word_replace_rate: number
+}
+
+interface ResponseSplitterConfig {
+  enable: boolean
+  max_length: number
+  max_sentence_num: number
+  enable_kaomoji_protection: boolean
+  enable_overflow_return_all: boolean
+}
+
+interface LogConfig {
+  date_style: string
+  log_level_style: string
+  color_text: string
+  log_level: string
+  console_log_level: string
+  file_log_level: string
+  suppress_libraries: string[]
+  library_log_levels: Record<string, string>
+}
+
+interface DebugConfig {
+  show_prompt: boolean
+  show_replyer_prompt: boolean
+  show_replyer_reasoning: boolean
+  show_jargon_prompt: boolean
+}
+
+interface MaimMessageConfig {
+  auth_token: string[]
+  use_custom: boolean
+  host: string
+  port: number
+  mode: string
+  use_wss: boolean
+  cert_file: string
+  key_file: string
+}
+
+interface TelemetryConfig {
+  enable: boolean
+}
+
 export function BotConfigPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -133,6 +206,14 @@ export function BotConfigPage() {
   const [moodConfig, setMoodConfig] = useState<MoodConfig | null>(null)
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig | null>(null)
   const [lpmmConfig, setLpmmConfig] = useState<LPMMKnowledgeConfig | null>(null)
+  const [keywordReactionConfig, setKeywordReactionConfig] = useState<KeywordReactionConfig | null>(null)
+  const [responsePostProcessConfig, setResponsePostProcessConfig] = useState<ResponsePostProcessConfig | null>(null)
+  const [chineseTypoConfig, setChineseTypoConfig] = useState<ChineseTypoConfig | null>(null)
+  const [responseSplitterConfig, setResponseSplitterConfig] = useState<ResponseSplitterConfig | null>(null)
+  const [logConfig, setLogConfig] = useState<LogConfig | null>(null)
+  const [debugConfig, setDebugConfig] = useState<DebugConfig | null>(null)
+  const [maimMessageConfig, setMaimMessageConfig] = useState<MaimMessageConfig | null>(null)
+  const [telemetryConfig, setTelemetryConfig] = useState<TelemetryConfig | null>(null)
 
   // 用于防抖的定时器
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -163,6 +244,14 @@ export function BotConfigPage() {
       setMoodConfig(config.mood as MoodConfig)
       setVoiceConfig(config.voice as VoiceConfig)
       setLpmmConfig(config.lpmm_knowledge as LPMMKnowledgeConfig)
+      setKeywordReactionConfig(config.keyword_reaction as KeywordReactionConfig)
+      setResponsePostProcessConfig(config.response_post_process as ResponsePostProcessConfig)
+      setChineseTypoConfig(config.chinese_typo as ChineseTypoConfig)
+      setResponseSplitterConfig(config.response_splitter as ResponseSplitterConfig)
+      setLogConfig(config.log as LogConfig)
+      setDebugConfig(config.debug as DebugConfig)
+      setMaimMessageConfig(config.maim_message as MaimMessageConfig)
+      setTelemetryConfig(config.telemetry as TelemetryConfig)
 
       setHasUnsavedChanges(false)
       initialLoadRef.current = false
@@ -277,6 +366,54 @@ export function BotConfigPage() {
     }
   }, [lpmmConfig, triggerAutoSave])
 
+  useEffect(() => {
+    if (keywordReactionConfig && !initialLoadRef.current) {
+      triggerAutoSave('keyword_reaction', keywordReactionConfig)
+    }
+  }, [keywordReactionConfig, triggerAutoSave])
+
+  useEffect(() => {
+    if (responsePostProcessConfig && !initialLoadRef.current) {
+      triggerAutoSave('response_post_process', responsePostProcessConfig)
+    }
+  }, [responsePostProcessConfig, triggerAutoSave])
+
+  useEffect(() => {
+    if (chineseTypoConfig && !initialLoadRef.current) {
+      triggerAutoSave('chinese_typo', chineseTypoConfig)
+    }
+  }, [chineseTypoConfig, triggerAutoSave])
+
+  useEffect(() => {
+    if (responseSplitterConfig && !initialLoadRef.current) {
+      triggerAutoSave('response_splitter', responseSplitterConfig)
+    }
+  }, [responseSplitterConfig, triggerAutoSave])
+
+  useEffect(() => {
+    if (logConfig && !initialLoadRef.current) {
+      triggerAutoSave('log', logConfig)
+    }
+  }, [logConfig, triggerAutoSave])
+
+  useEffect(() => {
+    if (debugConfig && !initialLoadRef.current) {
+      triggerAutoSave('debug', debugConfig)
+    }
+  }, [debugConfig, triggerAutoSave])
+
+  useEffect(() => {
+    if (maimMessageConfig && !initialLoadRef.current) {
+      triggerAutoSave('maim_message', maimMessageConfig)
+    }
+  }, [maimMessageConfig, triggerAutoSave])
+
+  useEffect(() => {
+    if (telemetryConfig && !initialLoadRef.current) {
+      triggerAutoSave('telemetry', telemetryConfig)
+    }
+  }, [telemetryConfig, triggerAutoSave])
+
   // 手动保存
   const saveConfig = async () => {
     try {
@@ -286,21 +423,29 @@ export function BotConfigPage() {
         clearTimeout(autoSaveTimerRef.current)
       }
 
-      const fullConfig = {
-        ...configRef.current,
-        bot: botConfig,
-        personality: personalityConfig,
-        chat: chatConfig,
-        expression: expressionConfig,
-        emoji: emojiConfig,
-        memory: memoryConfig,
-        tool: toolConfig,
-        mood: moodConfig,
-        voice: voiceConfig,
-        lpmm_knowledge: lpmmConfig,
-      }
-
-      await updateBotConfig(fullConfig)
+    const fullConfig = {
+      ...configRef.current,
+      bot: botConfig,
+      personality: personalityConfig,
+      chat: chatConfig,
+      expression: expressionConfig,
+      emoji: emojiConfig,
+      memory: memoryConfig,
+      tool: toolConfig,
+      mood: moodConfig,
+      voice: voiceConfig,
+      lpmm_knowledge: lpmmConfig,
+      keyword_reaction: keywordReactionConfig,
+      response_post_process: responsePostProcessConfig,
+      chinese_typo: chineseTypoConfig,
+      response_splitter: responseSplitterConfig,
+      log: logConfig,
+      debug: debugConfig,
+      maim_message: maimMessageConfig,
+      telemetry: telemetryConfig,
+    }
+    
+    await updateBotConfig(fullConfig)
       setHasUnsavedChanges(false)
       toast({
         title: '保存成功',
@@ -353,18 +498,19 @@ export function BotConfigPage() {
           <TabsTrigger value="personality">人格</TabsTrigger>
           <TabsTrigger value="chat">聊天</TabsTrigger>
           <TabsTrigger value="expression">表达</TabsTrigger>
-          <TabsTrigger value="emoji">表情</TabsTrigger>
-          <TabsTrigger value="memory">记忆</TabsTrigger>
-          <TabsTrigger value="tool">工具</TabsTrigger>
+          <TabsTrigger value="features">功能</TabsTrigger>
+          <TabsTrigger value="processing">处理</TabsTrigger>
           <TabsTrigger value="mood">情绪</TabsTrigger>
           <TabsTrigger value="voice">语音</TabsTrigger>
           <TabsTrigger value="lpmm">知识库</TabsTrigger>
+          <TabsTrigger value="other">其他</TabsTrigger>
         </TabsList>
 
-        {/* 基本信息 */}
-        <TabsContent value="bot" className="space-y-4">
-          {botConfig && <BotInfoSection config={botConfig} onChange={setBotConfig} />}
-        </TabsContent>
+        <ScrollArea className="h-[calc(100vh-320px)]">
+          {/* 基本信息 */}
+          <TabsContent value="bot" className="space-y-4">
+            {botConfig && <BotInfoSection config={botConfig} onChange={setBotConfig} />}
+          </TabsContent>
 
         {/* 人格配置 */}
         <TabsContent value="personality" className="space-y-4">
@@ -385,19 +531,34 @@ export function BotConfigPage() {
           )}
         </TabsContent>
 
-        {/* 表情配置 */}
-        <TabsContent value="emoji" className="space-y-4">
-          {emojiConfig && <EmojiSection config={emojiConfig} onChange={setEmojiConfig} />}
+        {/* 功能配置（合并表情、记忆、工具） */}
+        <TabsContent value="features" className="space-y-4">
+          {emojiConfig && memoryConfig && toolConfig && (
+            <FeaturesSection
+              emojiConfig={emojiConfig}
+              memoryConfig={memoryConfig}
+              toolConfig={toolConfig}
+              onEmojiChange={setEmojiConfig}
+              onMemoryChange={setMemoryConfig}
+              onToolChange={setToolConfig}
+            />
+          )}
         </TabsContent>
 
-        {/* 记忆配置 */}
-        <TabsContent value="memory" className="space-y-4">
-          {memoryConfig && <MemorySection config={memoryConfig} onChange={setMemoryConfig} />}
-        </TabsContent>
-
-        {/* 工具配置 */}
-        <TabsContent value="tool" className="space-y-4">
-          {toolConfig && <ToolSection config={toolConfig} onChange={setToolConfig} />}
+        {/* 处理配置（关键词反应和回复后处理） */}
+        <TabsContent value="processing" className="space-y-4">
+          {keywordReactionConfig && responsePostProcessConfig && chineseTypoConfig && responseSplitterConfig && (
+            <ProcessingSection
+              keywordReactionConfig={keywordReactionConfig}
+              responsePostProcessConfig={responsePostProcessConfig}
+              chineseTypoConfig={chineseTypoConfig}
+              responseSplitterConfig={responseSplitterConfig}
+              onKeywordReactionChange={setKeywordReactionConfig}
+              onResponsePostProcessChange={setResponsePostProcessConfig}
+              onChineseTypoChange={setChineseTypoConfig}
+              onResponseSplitterChange={setResponseSplitterConfig}
+            />
+          )}
         </TabsContent>
 
         {/* 情绪配置 */}
@@ -414,6 +575,15 @@ export function BotConfigPage() {
         <TabsContent value="lpmm" className="space-y-4">
           {lpmmConfig && <LPMMSection config={lpmmConfig} onChange={setLpmmConfig} />}
         </TabsContent>
+
+        {/* 其他配置 */}
+        <TabsContent value="other" className="space-y-4">
+          {logConfig && <LogSection config={logConfig} onChange={setLogConfig} />}
+          {debugConfig && <DebugSection config={debugConfig} onChange={setDebugConfig} />}
+          {maimMessageConfig && <MaimMessageSection config={maimMessageConfig} onChange={setMaimMessageConfig} />}
+          {telemetryConfig && <TelemetrySection config={telemetryConfig} onChange={setTelemetryConfig} />}
+        </TabsContent>
+        </ScrollArea>
       </Tabs>
     </div>
   )
@@ -1595,115 +1765,1253 @@ function ExpressionSection({
 }
 
 // 表情配置组件
-function EmojiSection({
-  config,
-  onChange,
+// 功能配置组件（合并表情、记忆、工具）
+function FeaturesSection({
+  emojiConfig,
+  memoryConfig,
+  toolConfig,
+  onEmojiChange,
+  onMemoryChange,
+  onToolChange,
 }: {
-  config: EmojiConfig
-  onChange: (config: EmojiConfig) => void
+  emojiConfig: EmojiConfig
+  memoryConfig: MemoryConfig
+  toolConfig: ToolConfig
+  onEmojiChange: (config: EmojiConfig) => void
+  onMemoryChange: (config: MemoryConfig) => void
+  onToolChange: (config: ToolConfig) => void
 }) {
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
-      <h3 className="text-lg font-semibold">表情包设置</h3>
-      <div className="grid gap-4">
-        <div className="grid gap-2">
-          <Label>表情包激活概率</Label>
-          <Input
-            type="number"
-            step="0.1"
-            min="0"
-            max="1"
-            value={config.emoji_chance}
-            onChange={(e) => onChange({ ...config, emoji_chance: parseFloat(e.target.value) })}
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label>最大注册数量</Label>
-          <Input
-            type="number"
-            min="1"
-            value={config.max_reg_num}
-            onChange={(e) => onChange({ ...config, max_reg_num: parseInt(e.target.value) })}
-          />
-        </div>
-        <div className="flex items-center space-x-2">
-          <Switch
-            checked={config.do_replace}
-            onCheckedChange={(checked) => onChange({ ...config, do_replace: checked })}
-          />
-          <Label className="cursor-pointer">达到最大数量时替换表情包</Label>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Switch
-            checked={config.steal_emoji}
-            onCheckedChange={(checked) => onChange({ ...config, steal_emoji: checked })}
-          />
-          <Label className="cursor-pointer">偷取表情包</Label>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Switch
-            checked={config.content_filtration}
-            onCheckedChange={(checked) => onChange({ ...config, content_filtration: checked })}
-          />
-          <Label className="cursor-pointer">启用表情包过滤</Label>
-        </div>
-        {config.content_filtration && (
-          <div className="grid gap-2">
-            <Label>过滤要求</Label>
-            <Input
-              value={config.filtration_prompt}
-              onChange={(e) => onChange({ ...config, filtration_prompt: e.target.value })}
-              placeholder="符合公序良俗"
+    <div className="space-y-6">
+      {/* 工具设置 */}
+      <div className="rounded-lg border bg-card p-6 space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold mb-4">工具设置</h3>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="enable_tool"
+              checked={toolConfig.enable_tool}
+              onCheckedChange={(checked) => onToolChange({ ...toolConfig, enable_tool: checked })}
             />
+            <Label htmlFor="enable_tool" className="cursor-pointer">
+              启用工具系统
+            </Label>
           </div>
-        )}
+          <p className="text-xs text-muted-foreground mt-2">
+            允许麦麦使用各种工具来增强功能
+          </p>
+        </div>
+      </div>
+
+      {/* 记忆设置 */}
+      <div className="rounded-lg border bg-card p-6 space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold mb-4">记忆设置</h3>
+          <div className="grid gap-2">
+            <Label htmlFor="max_agent_iterations">记忆思考深度</Label>
+            <Input
+              id="max_agent_iterations"
+              type="number"
+              min="1"
+              value={memoryConfig.max_agent_iterations}
+              onChange={(e) =>
+                onMemoryChange({ ...memoryConfig, max_agent_iterations: parseInt(e.target.value) })
+              }
+            />
+            <p className="text-xs text-muted-foreground">最低为 1（不深入思考）</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 表情包设置 */}
+      <div className="rounded-lg border bg-card p-6 space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold mb-4">表情包设置</h3>
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="emoji_chance">表情包激活概率</Label>
+              <Input
+                id="emoji_chance"
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                value={emojiConfig.emoji_chance}
+                onChange={(e) =>
+                  onEmojiChange({ ...emojiConfig, emoji_chance: parseFloat(e.target.value) })
+                }
+              />
+              <p className="text-xs text-muted-foreground">范围 0-1，越大越容易发送表情包</p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="max_reg_num">最大注册数量</Label>
+              <Input
+                id="max_reg_num"
+                type="number"
+                min="1"
+                value={emojiConfig.max_reg_num}
+                onChange={(e) =>
+                  onEmojiChange({ ...emojiConfig, max_reg_num: parseInt(e.target.value) })
+                }
+              />
+              <p className="text-xs text-muted-foreground">麦麦最多可以注册的表情包数量</p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="check_interval">检查间隔（分钟）</Label>
+              <Input
+                id="check_interval"
+                type="number"
+                min="1"
+                value={emojiConfig.check_interval}
+                onChange={(e) =>
+                  onEmojiChange({ ...emojiConfig, check_interval: parseInt(e.target.value) })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                检查表情包（注册、破损、删除）的时间间隔
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="do_replace"
+                checked={emojiConfig.do_replace}
+                onCheckedChange={(checked) =>
+                  onEmojiChange({ ...emojiConfig, do_replace: checked })
+                }
+              />
+              <Label htmlFor="do_replace" className="cursor-pointer">
+                达到最大数量时替换表情包
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="steal_emoji"
+                checked={emojiConfig.steal_emoji}
+                onCheckedChange={(checked) =>
+                  onEmojiChange({ ...emojiConfig, steal_emoji: checked })
+                }
+              />
+              <Label htmlFor="steal_emoji" className="cursor-pointer">
+                偷取表情包
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-2">
+              允许麦麦将看到的表情包据为己有
+            </p>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="content_filtration"
+                checked={emojiConfig.content_filtration}
+                onCheckedChange={(checked) =>
+                  onEmojiChange({ ...emojiConfig, content_filtration: checked })
+                }
+              />
+              <Label htmlFor="content_filtration" className="cursor-pointer">
+                启用表情包过滤
+              </Label>
+            </div>
+
+            {emojiConfig.content_filtration && (
+              <div className="grid gap-2 pl-6 border-l-2 border-primary/20">
+                <Label htmlFor="filtration_prompt">过滤要求</Label>
+                <Input
+                  id="filtration_prompt"
+                  value={emojiConfig.filtration_prompt}
+                  onChange={(e) =>
+                    onEmojiChange({ ...emojiConfig, filtration_prompt: e.target.value })
+                  }
+                  placeholder="符合公序良俗"
+                />
+                <p className="text-xs text-muted-foreground">
+                  只有符合此要求的表情包才会被保存
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
-function MemorySection({
-  config,
-  onChange,
+// 处理配置组件（关键词反应和回复后处理）
+function ProcessingSection({
+  keywordReactionConfig,
+  responsePostProcessConfig,
+  chineseTypoConfig,
+  responseSplitterConfig,
+  onKeywordReactionChange,
+  onResponsePostProcessChange,
+  onChineseTypoChange,
+  onResponseSplitterChange,
 }: {
-  config: MemoryConfig
-  onChange: (config: MemoryConfig) => void
+  keywordReactionConfig: KeywordReactionConfig
+  responsePostProcessConfig: ResponsePostProcessConfig
+  chineseTypoConfig: ChineseTypoConfig
+  responseSplitterConfig: ResponseSplitterConfig
+  onKeywordReactionChange: (config: KeywordReactionConfig) => void
+  onResponsePostProcessChange: (config: ResponsePostProcessConfig) => void
+  onChineseTypoChange: (config: ChineseTypoConfig) => void
+  onResponseSplitterChange: (config: ResponseSplitterConfig) => void
 }) {
-  return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
-      <h3 className="text-lg font-semibold">记忆设置</h3>
-      <div className="grid gap-2">
-        <Label>记忆思考深度</Label>
-        <Input
-          type="number"
-          min="1"
-          value={config.max_agent_iterations}
-          onChange={(e) =>
-            onChange({ ...config, max_agent_iterations: parseInt(e.target.value) })
+  // ===== 关键词反应相关函数 =====
+  // 添加正则规则
+  const addRegexRule = () => {
+    onKeywordReactionChange({
+      ...keywordReactionConfig,
+      regex_rules: [
+        ...keywordReactionConfig.regex_rules,
+        { regex: [''], reaction: '' },
+      ],
+    })
+  }
+
+  // 删除正则规则
+  const removeRegexRule = (index: number) => {
+    onKeywordReactionChange({
+      ...keywordReactionConfig,
+      regex_rules: keywordReactionConfig.regex_rules.filter((_, i) => i !== index),
+    })
+  }
+
+  // 更新正则规则
+  const updateRegexRule = (index: number, field: 'regex' | 'reaction', value: string | string[]) => {
+    const newRules = [...keywordReactionConfig.regex_rules]
+    if (field === 'regex' && typeof value === 'string') {
+      newRules[index] = { ...newRules[index], regex: [value] }
+    } else if (field === 'reaction' && typeof value === 'string') {
+      newRules[index] = { ...newRules[index], reaction: value }
+    }
+    onKeywordReactionChange({
+      ...keywordReactionConfig,
+      regex_rules: newRules,
+    })
+  }
+
+  // 正则表达式编辑器（构建器+测试器合并）
+  const RegexEditor = ({ 
+    regex, 
+    reaction,
+    onRegexChange,
+    onReactionChange,
+  }: { 
+    regex: string
+    reaction: string
+    onRegexChange: (value: string) => void
+    onReactionChange: (value: string) => void
+  }) => {
+    const [open, setOpen] = useState(false)
+    const [testText, setTestText] = useState('')
+    const [matches, setMatches] = useState<RegExpMatchArray | null>(null)
+    const [error, setError] = useState<string>('')
+    const [captureGroups, setCaptureGroups] = useState<Record<string, string>>({})
+    const [replacedReaction, setReplacedReaction] = useState<string>('')
+    const inputRef = useRef<HTMLInputElement>(null)
+    const [activeTab, setActiveTab] = useState<'build' | 'test'>('build')
+
+    // 将 Python 风格的命名捕获组转换为 JavaScript 风格
+    const convertPythonRegexToJS = (pythonRegex: string): string => {
+      return pythonRegex.replace(/\(\?P<([^>]+)>/g, '(?<$1>')
+    }
+
+    // 插入文本到光标位置
+    const insertAtCursor = (text: string, moveCursor: number = 0) => {
+      const input = inputRef.current
+      if (!input) return
+
+      const start = input.selectionStart || 0
+      const end = input.selectionEnd || 0
+      const newValue = regex.substring(0, start) + text + regex.substring(end)
+      
+      onRegexChange(newValue)
+      
+      setTimeout(() => {
+        const newPosition = start + text.length + moveCursor
+        input.setSelectionRange(newPosition, newPosition)
+        input.focus()
+      }, 0)
+    }
+
+    // 测试正则表达式
+    useEffect(() => {
+      if (!regex || !testText) {
+        setMatches(null)
+        setCaptureGroups({})
+        setReplacedReaction(reaction)
+        setError('')
+        return
+      }
+
+      try {
+        const jsRegex = convertPythonRegexToJS(regex)
+        const regexObj = new RegExp(jsRegex, 'g')
+        const matchResult = testText.match(regexObj)
+        setMatches(matchResult)
+        setError('')
+
+        const execRegex = new RegExp(jsRegex)
+        const execResult = execRegex.exec(testText)
+        
+        if (execResult && execResult.groups) {
+          setCaptureGroups(execResult.groups)
+          
+          let replaced = reaction
+          Object.entries(execResult.groups).forEach(([key, value]) => {
+            replaced = replaced.replace(new RegExp(`\\[${key}\\]`, 'g'), value || '')
+          })
+          setReplacedReaction(replaced)
+        } else {
+          setCaptureGroups({})
+          setReplacedReaction(reaction)
+        }
+      } catch (err) {
+        setError((err as Error).message)
+        setMatches(null)
+        setCaptureGroups({})
+        setReplacedReaction(reaction)
+      }
+    }, [regex, testText, reaction])
+
+    // 高亮显示匹配的文本
+    const renderHighlightedText = () => {
+      if (!testText || !matches || matches.length === 0) {
+        return <span className="text-muted-foreground">{testText || '请输入测试文本'}</span>
+      }
+
+      try {
+        const jsRegex = convertPythonRegexToJS(regex)
+        const regexObj = new RegExp(jsRegex, 'g')
+        let lastIndex = 0
+        const parts: React.ReactElement[] = []
+        let match: RegExpExecArray | null
+
+        while ((match = regexObj.exec(testText)) !== null) {
+          if (match.index > lastIndex) {
+            parts.push(
+              <span key={`text-${lastIndex}`}>
+                {testText.substring(lastIndex, match.index)}
+              </span>
+            )
           }
-        />
-        <p className="text-xs text-muted-foreground">最低为 1（不深入思考）</p>
-      </div>
-    </div>
-  )
-}
 
-function ToolSection({
-  config,
-  onChange,
-}: {
-  config: ToolConfig
-  onChange: (config: ToolConfig) => void
-}) {
+          parts.push(
+            <span key={`match-${match.index}`} className="bg-yellow-200 dark:bg-yellow-900 font-semibold">
+              {match[0]}
+            </span>
+          )
+
+          lastIndex = match.index + match[0].length
+        }
+
+        if (lastIndex < testText.length) {
+          parts.push(
+            <span key={`text-${lastIndex}`}>
+              {testText.substring(lastIndex)}
+            </span>
+          )
+        }
+
+        return <>{parts}</>
+      } catch {
+        return <span>{testText}</span>
+      }
+    }
+
+    // 常用正则模式
+    const patterns = [
+      {
+        category: '基础匹配',
+        items: [
+          { label: '任意字符', pattern: '.', desc: '匹配除换行符外的任意字符' },
+          { label: '数字', pattern: '\\d', desc: '匹配 0-9' },
+          { label: '非数字', pattern: '\\D', desc: '匹配非数字字符' },
+          { label: '字母数字', pattern: '\\w', desc: '匹配字母、数字、下划线' },
+          { label: '非字母数字', pattern: '\\W', desc: '匹配非字母数字字符' },
+          { label: '空白符', pattern: '\\s', desc: '匹配空格、制表符等' },
+          { label: '非空白符', pattern: '\\S', desc: '匹配非空白字符' },
+        ],
+      },
+      {
+        category: '位置锚点',
+        items: [
+          { label: '行首', pattern: '^', desc: '匹配行的开始' },
+          { label: '行尾', pattern: '$', desc: '匹配行的结束' },
+          { label: '单词边界', pattern: '\\b', desc: '匹配单词边界' },
+        ],
+      },
+      {
+        category: '重复次数',
+        items: [
+          { label: '0或多次', pattern: '*', desc: '匹配前面的元素0次或多次' },
+          { label: '1或多次', pattern: '+', desc: '匹配前面的元素1次或多次' },
+          { label: '0或1次', pattern: '?', desc: '匹配前面的元素0次或1次' },
+          { label: '指定次数', pattern: '{n}', desc: '匹配n次，将n替换为数字' },
+          { label: '次数范围', pattern: '{m,n}', desc: '匹配m到n次' },
+        ],
+      },
+      {
+        category: '分组和捕获',
+        items: [
+          { label: '普通分组', pattern: '()', desc: '分组但不捕获', moveCursor: -1 },
+          { label: '命名捕获', pattern: '(?P<name>)', desc: 'Python风格命名捕获组', moveCursor: -1 },
+          { label: '非捕获组', pattern: '(?:)', desc: '分组但不保存匹配结果', moveCursor: -1 },
+        ],
+      },
+      {
+        category: '字符类',
+        items: [
+          { label: '字符集', pattern: '[]', desc: '匹配括号内的任意字符', moveCursor: -1 },
+          { label: '排除字符', pattern: '[^]', desc: '匹配不在括号内的字符', moveCursor: -1 },
+          { label: '范围', pattern: '[a-z]', desc: '匹配a到z的字符' },
+          { label: '中文字符', pattern: '[\\u4e00-\\u9fa5]', desc: '匹配中文汉字' },
+        ],
+      },
+      {
+        category: '常用模板',
+        items: [
+          { label: '捕获词语', pattern: '(?P<word>\\S+)', desc: '捕获一个词语' },
+          { label: '捕获句子', pattern: '(?P<sentence>.+)', desc: '捕获整个句子' },
+          { label: '捕获数字', pattern: '(?P<num>\\d+)', desc: '捕获一个或多个数字' },
+          { label: '可选词语', pattern: '(?:词语1|词语2)', desc: '匹配多个可选项之一' },
+        ],
+      },
+    ]
+
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <FileSearch className="h-4 w-4 mr-1" />
+            正则编辑器
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-[900px] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>正则表达式编辑器</DialogTitle>
+            <DialogDescription>
+              使用可视化工具构建正则表达式，并实时测试效果
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="max-h-[calc(90vh-120px)]">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'build' | 'test')} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="build">🔧 构建器</TabsTrigger>
+                <TabsTrigger value="test">🧪 测试器</TabsTrigger>
+              </TabsList>
+
+            {/* 构建器标签页 */}
+            <TabsContent value="build" className="space-y-4 mt-4">
+              {/* 正则表达式编辑 */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">正则表达式</Label>
+                <Input
+                  ref={inputRef}
+                  value={regex}
+                  onChange={(e) => onRegexChange(e.target.value)}
+                  className="font-mono text-sm"
+                  placeholder="点击下方按钮构建正则表达式..."
+                />
+              </div>
+
+              {/* Reaction 编辑 */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Reaction 内容</Label>
+                <Textarea
+                  value={reaction}
+                  onChange={(e) => onReactionChange(e.target.value)}
+                  placeholder="使用 [捕获组名] 引用捕获的内容..."
+                  rows={3}
+                  className="text-sm"
+                />
+              </div>
+
+              {/* 快捷按钮 */}
+              <div className="space-y-4 border-t pt-4">
+                {patterns.map((category) => (
+                  <div key={category.category} className="space-y-2">
+                    <h5 className="text-xs font-semibold text-primary">{category.category}</h5>
+                    <div className="grid grid-cols-2 gap-2">
+                      {category.items.map((item) => (
+                        <Button
+                          key={item.label}
+                          variant="outline"
+                          size="sm"
+                          className="justify-start h-auto py-2 px-3"
+                          onClick={() => insertAtCursor(item.pattern, item.moveCursor || 0)}
+                        >
+                          <div className="flex flex-col items-start w-full">
+                            <div className="flex items-center gap-2 w-full">
+                              <span className="text-xs font-medium">{item.label}</span>
+                              <code className="ml-auto text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+                                {item.pattern}
+                              </code>
+                            </div>
+                            <span className="text-xs text-muted-foreground mt-0.5">
+                              {item.desc}
+                            </span>
+                          </div>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* 完整示例 */}
+                <div className="space-y-2 border-t pt-4">
+                  <h5 className="text-xs font-semibold text-primary">完整示例模板</h5>
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start h-auto py-2 px-3"
+                      onClick={() => onRegexChange('^(?P<n>\\S{1,20})是这样的$')}
+                    >
+                      <div className="flex flex-col items-start w-full">
+                        <code className="text-xs font-mono bg-muted px-2 py-1 rounded w-full overflow-x-auto">
+                          ^(?P&lt;n&gt;\S{'{1,20}'})是这样的$
+                        </code>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          匹配「某事物是这样的」并捕获事物名称
+                        </span>
+                      </div>
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start h-auto py-2 px-3"
+                      onClick={() => onRegexChange('(?:[^，。.\\s]+，\\s*)?我(?:也)?[没沒]要求你\\s*(?P<action>.+?)[.。,，]?$')}
+                    >
+                      <div className="flex flex-col items-start w-full">
+                        <code className="text-xs font-mono bg-muted px-2 py-1 rounded w-full overflow-x-auto">
+                          (?:[^，。.\s]+，\s*)?我(?:也)?[没沒]要求你\s*(?P&lt;action&gt;.+?)[.。,，]?$
+                        </code>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          匹配「我没要求你做某事」并捕获具体行为
+                        </span>
+                      </div>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start h-auto py-2 px-3"
+                      onClick={() => onRegexChange('(?P<subject>.+?)(?:是|为什么|怎么)')}
+                    >
+                      <div className="flex flex-col items-start w-full">
+                        <code className="text-xs font-mono bg-muted px-2 py-1 rounded w-full overflow-x-auto">
+                          (?P&lt;subject&gt;.+?)(?:是|为什么|怎么)
+                        </code>
+                        <span className="text-xs text-muted-foreground mt-1">
+                          捕获问题主题词
+                        </span>
+                      </div>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 帮助信息 */}
+              <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 space-y-1">
+                <p className="text-xs font-medium text-blue-900 dark:text-blue-100">💡 使用提示</p>
+                <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
+                  <li>点击输入框设置光标位置，然后点击按钮插入模式</li>
+                  <li>命名捕获组格式：<code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">(?P&lt;名称&gt;模式)</code></li>
+                  <li>在 reaction 中使用 <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">[名称]</code> 引用捕获的内容</li>
+                  <li>切换到测试器标签页验证正则表达式效果</li>
+                </ul>
+              </div>
+            </TabsContent>
+
+            {/* 测试器标签页 */}
+            <TabsContent value="test" className="space-y-4 mt-4">
+              {/* 当前正则显示 */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">当前正则表达式</Label>
+                <div className="rounded-md bg-muted p-3 font-mono text-xs break-all">
+                  {regex || '(未设置)'}
+                </div>
+              </div>
+
+              {/* 测试文本输入 */}
+              <div className="space-y-2">
+                <Label htmlFor="test-text" className="text-sm font-medium">测试文本</Label>
+                <Textarea
+                  id="test-text"
+                  value={testText}
+                  onChange={(e) => setTestText(e.target.value)}
+                  placeholder="在此输入要测试的文本...&#10;例如：打游戏是这样的"
+                  className="min-h-[100px] text-sm"
+                />
+              </div>
+
+              {/* 错误提示 */}
+              {error && (
+                <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
+                  <p className="text-sm text-destructive font-medium">正则表达式错误</p>
+                  <p className="text-xs text-destructive/80 mt-1">{error}</p>
+                </div>
+              )}
+
+              {/* 匹配结果 */}
+              {!error && testText && (
+                <div className="space-y-3">
+                  {/* 匹配状态 */}
+                  <div className="flex items-center gap-2">
+                    {matches && matches.length > 0 ? (
+                      <>
+                        <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                          匹配成功 ({matches.length} 处)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="h-2 w-2 rounded-full bg-gray-400"></div>
+                        <span className="text-sm font-medium text-muted-foreground">
+                          无匹配
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* 高亮显示 */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">匹配高亮</Label>
+                    <ScrollArea className="h-40 rounded-md bg-muted p-3">
+                      <div className="text-sm break-words">
+                        {renderHighlightedText()}
+                      </div>
+                    </ScrollArea>
+                  </div>
+
+                  {/* 捕获组 */}
+                  {Object.keys(captureGroups).length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">命名捕获组</Label>
+                      <ScrollArea className="h-32 rounded-md border p-3">
+                        <div className="space-y-2">
+                          {Object.entries(captureGroups).map(([name, value]) => (
+                            <div key={name} className="flex items-start gap-2 text-sm">
+                              <span className="font-mono font-semibold text-primary min-w-[80px]">[{name}]</span>
+                              <span className="text-muted-foreground">=</span>
+                              <span className="font-mono bg-muted px-2 py-0.5 rounded">{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  )}
+
+                  {/* 替换预览 */}
+                  {Object.keys(captureGroups).length > 0 && reaction && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Reaction 替换预览</Label>
+                      <ScrollArea className="h-48 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3">
+                        <div className="text-sm break-words">
+                          {replacedReaction}
+                        </div>
+                      </ScrollArea>
+                      <p className="text-xs text-muted-foreground">
+                        reaction 中的 [name] 已被替换为对应的捕获组值
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 帮助信息 */}
+              <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 space-y-1">
+                <p className="text-xs font-medium text-blue-900 dark:text-blue-100">💡 测试说明</p>
+                <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
+                  <li>匹配的文本会以黄色背景高亮显示</li>
+                  <li>命名捕获组的值会显示在下方列表中</li>
+                  <li>Reaction 替换预览显示最终生成的反应内容</li>
+                  <li>如需修改正则，切换回构建器标签页</li>
+                </ul>
+              </div>
+            </TabsContent>
+          </Tabs>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  // 添加关键词规则
+  const addKeywordRule = () => {
+    onKeywordReactionChange({
+      ...keywordReactionConfig,
+      keyword_rules: [
+        ...keywordReactionConfig.keyword_rules,
+        { keywords: [], reaction: '' },
+      ],
+    })
+  }
+
+  // 删除关键词规则
+  const removeKeywordRule = (index: number) => {
+    onKeywordReactionChange({
+      ...keywordReactionConfig,
+      keyword_rules: keywordReactionConfig.keyword_rules.filter((_, i) => i !== index),
+    })
+  }
+
+  // 更新关键词规则
+  const updateKeywordRule = (index: number, field: 'keywords' | 'reaction', value: string | string[]) => {
+    const newRules = [...keywordReactionConfig.keyword_rules]
+    if (field === 'keywords' && Array.isArray(value)) {
+      newRules[index] = { ...newRules[index], keywords: value }
+    } else if (field === 'reaction' && typeof value === 'string') {
+      newRules[index] = { ...newRules[index], reaction: value }
+    }
+    onKeywordReactionChange({
+      ...keywordReactionConfig,
+      keyword_rules: newRules,
+    })
+  }
+
+  // 添加/删除关键词
+  const addKeyword = (ruleIndex: number) => {
+    const newRules = [...keywordReactionConfig.keyword_rules]
+    newRules[ruleIndex] = {
+      ...newRules[ruleIndex],
+      keywords: [...(newRules[ruleIndex].keywords || []), ''],
+    }
+    onKeywordReactionChange({
+      ...keywordReactionConfig,
+      keyword_rules: newRules,
+    })
+  }
+
+  const removeKeyword = (ruleIndex: number, keywordIndex: number) => {
+    const newRules = [...keywordReactionConfig.keyword_rules]
+    newRules[ruleIndex] = {
+      ...newRules[ruleIndex],
+      keywords: (newRules[ruleIndex].keywords || []).filter((_, i) => i !== keywordIndex),
+    }
+    onKeywordReactionChange({
+      ...keywordReactionConfig,
+      keyword_rules: newRules,
+    })
+  }
+
+  const updateKeyword = (ruleIndex: number, keywordIndex: number, value: string) => {
+    const newRules = [...keywordReactionConfig.keyword_rules]
+    const keywords = [...(newRules[ruleIndex].keywords || [])]
+    keywords[keywordIndex] = value
+    newRules[ruleIndex] = { ...newRules[ruleIndex], keywords }
+    onKeywordReactionChange({
+      ...keywordReactionConfig,
+      keyword_rules: newRules,
+    })
+  }
+
+  // 预览组件
+  const RegexRulePreview = ({ rule }: { rule: KeywordRule }) => {
+    const previewText = `{ regex = [${(rule.regex || []).map(r => `"${r}"`).join(', ')}], reaction = "${rule.reaction}" }`
+    
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm">
+            <Eye className="h-4 w-4 mr-1" />
+            预览
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[500px]">
+          <div className="space-y-2">
+            <h4 className="font-medium text-sm">配置预览</h4>
+            <ScrollArea className="h-60 rounded-md bg-muted p-3">
+              <pre className="font-mono text-xs break-all">
+                {previewText}
+              </pre>
+            </ScrollArea>
+            <p className="text-xs text-muted-foreground">
+              这是保存到 bot_config.toml 文件中的格式
+            </p>
+          </div>
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
+  const KeywordRulePreview = ({ rule }: { rule: KeywordRule }) => {
+    const previewText = `[[keyword_reaction.keyword_rules]]\nkeywords = [${(rule.keywords || []).map(k => `"${k}"`).join(', ')}]\nreaction = "${rule.reaction}"`
+    
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm">
+            <Eye className="h-4 w-4 mr-1" />
+            预览
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[500px]">
+          <div className="space-y-2">
+            <h4 className="font-medium text-sm">配置预览</h4>
+            <ScrollArea className="h-60 rounded-md bg-muted p-3">
+              <pre className="font-mono text-xs whitespace-pre-wrap break-all">
+                {previewText}
+              </pre>
+            </ScrollArea>
+            <p className="text-xs text-muted-foreground">
+              这是保存到 bot_config.toml 文件中的格式
+            </p>
+          </div>
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
-      <h3 className="text-lg font-semibold">工具设置</h3>
-      <div className="flex items-center space-x-2">
-        <Switch
-          checked={config.enable_tool}
-          onCheckedChange={(checked) => onChange({ ...config, enable_tool: checked })}
-        />
-        <Label className="cursor-pointer">启用工具系统</Label>
+    <div className="space-y-6">
+      {/* 关键词反应配置 */}
+      <div className="rounded-lg border bg-card p-6 space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold mb-2">关键词反应配置</h3>
+          <p className="text-sm text-muted-foreground">
+            配置触发特定反应的关键词和正则表达式规则
+          </p>
+        </div>
+
+        {/* 正则规则 */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-base font-semibold">正则表达式规则</h4>
+              <p className="text-xs text-muted-foreground mt-1">
+                使用正则表达式匹配消息内容
+              </p>
+            </div>
+            <Button onClick={addRegexRule} size="sm" variant="outline">
+              <Plus className="h-4 w-4 mr-1" />
+              添加正则规则
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {keywordReactionConfig.regex_rules.map((rule, index) => (
+              <div key={index} className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">正则规则 {index + 1}</span>
+                  <div className="flex items-center gap-2">
+                    <RegexEditor
+                      regex={(rule.regex && rule.regex[0]) || ''}
+                      reaction={rule.reaction}
+                      onRegexChange={(value) => updateRegexRule(index, 'regex', value)}
+                      onReactionChange={(value) => updateRegexRule(index, 'reaction', value)}
+                    />
+                    <RegexRulePreview rule={rule} />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="ghost">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>确认删除</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            确定要删除正则规则 {index + 1} 吗？此操作无法撤销。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>取消</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => removeRegexRule(index)}>
+                            删除
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-medium">正则表达式（Python 语法）</Label>
+                    <Input
+                      value={(rule.regex && rule.regex[0]) || ''}
+                      onChange={(e) => updateRegexRule(index, 'regex', e.target.value)}
+                      placeholder="例如：^(?P<n>\\S{1,20})是这样的$ （点击正则编辑器按钮可视化构建）"
+                      className="font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      支持命名捕获组 (?P&lt;name&gt;pattern)，可在 reaction 中使用 [name] 引用。点击"正则编辑器"可视化构建和测试！
+                    </p>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-medium">反应内容</Label>
+                    <Textarea
+                      value={rule.reaction}
+                      onChange={(e) => updateRegexRule(index, 'reaction', e.target.value)}
+                      placeholder="触发后麦麦的反应...&#10;可以使用 [捕获组名] 来引用正则表达式中的内容"
+                      rows={3}
+                      className="text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      使用 [捕获组名] 引用正则表达式中的命名捕获组，例如 [n] 会被替换为捕获的内容
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {keywordReactionConfig.regex_rules.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                暂无正则规则，点击"添加正则规则"开始配置
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 关键词规则 */}
+        <div className="space-y-4 border-t pt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-base font-semibold">关键词规则</h4>
+              <p className="text-xs text-muted-foreground mt-1">
+                使用关键词列表匹配消息内容
+              </p>
+            </div>
+            <Button onClick={addKeywordRule} size="sm" variant="outline">
+              <Plus className="h-4 w-4 mr-1" />
+              添加关键词规则
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {keywordReactionConfig.keyword_rules.map((rule, ruleIndex) => (
+              <div key={ruleIndex} className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">关键词规则 {ruleIndex + 1}</span>
+                  <div className="flex items-center gap-2">
+                    <KeywordRulePreview rule={rule} />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="ghost">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>确认删除</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            确定要删除关键词规则 {ruleIndex + 1} 吗？此操作无法撤销。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>取消</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => removeKeywordRule(ruleIndex)}>
+                            删除
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium">关键词列表</Label>
+                      <Button
+                        onClick={() => addKeyword(ruleIndex)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        添加关键词
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(rule.keywords || []).map((keyword, keywordIndex) => (
+                        <div key={keywordIndex} className="flex items-center gap-2">
+                          <Input
+                            value={keyword}
+                            onChange={(e) =>
+                              updateKeyword(ruleIndex, keywordIndex, e.target.value)
+                            }
+                            placeholder="关键词"
+                            className="flex-1"
+                          />
+                          <Button
+                            onClick={() => removeKeyword(ruleIndex, keywordIndex)}
+                            size="sm"
+                            variant="ghost"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+
+                      {(!rule.keywords || rule.keywords.length === 0) && (
+                        <p className="text-xs text-muted-foreground text-center py-2">
+                          暂无关键词，点击"添加关键词"开始配置
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label className="text-xs font-medium">反应内容</Label>
+                    <Textarea
+                      value={rule.reaction}
+                      onChange={(e) => updateKeywordRule(ruleIndex, 'reaction', e.target.value)}
+                      placeholder="触发后麦麦的反应..."
+                      rows={3}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {keywordReactionConfig.keyword_rules.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                暂无关键词规则，点击"添加关键词规则"开始配置
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 回复后处理配置 */}
+      <div className="rounded-lg border bg-card p-6 space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold mb-4">回复后处理配置</h3>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="enable_response_post_process"
+              checked={responsePostProcessConfig.enable_response_post_process}
+              onCheckedChange={(checked) =>
+                onResponsePostProcessChange({
+                  ...responsePostProcessConfig,
+                  enable_response_post_process: checked,
+                })
+              }
+            />
+            <Label htmlFor="enable_response_post_process" className="cursor-pointer">
+              启用回复后处理
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            包括错别字生成器和回复分割器
+          </p>
+        </div>
+
+        {/* 错别字生成器 */}
+        {responsePostProcessConfig.enable_response_post_process && (
+          <>
+            <div className="border-t pt-6 space-y-4">
+              <div>
+                <div className="flex items-center space-x-2 mb-4">
+                  <Switch
+                    id="enable_chinese_typo"
+                    checked={chineseTypoConfig.enable}
+                    onCheckedChange={(checked) =>
+                      onChineseTypoChange({ ...chineseTypoConfig, enable: checked })
+                    }
+                  />
+                  <Label htmlFor="enable_chinese_typo" className="cursor-pointer font-semibold">
+                    中文错别字生成器
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">
+                  为回复添加随机错别字，让麦麦的回复更自然
+                </p>
+
+                {chineseTypoConfig.enable && (
+                  <div className="grid gap-4 pl-6 border-l-2 border-primary/20">
+                    <div className="grid gap-2">
+                      <Label htmlFor="error_rate" className="text-xs font-medium">
+                        单字替换概率
+                      </Label>
+                      <Input
+                        id="error_rate"
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        max="1"
+                        value={chineseTypoConfig.error_rate}
+                        onChange={(e) =>
+                          onChineseTypoChange({
+                            ...chineseTypoConfig,
+                            error_rate: parseFloat(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="min_freq" className="text-xs font-medium">
+                        最小字频阈值
+                      </Label>
+                      <Input
+                        id="min_freq"
+                        type="number"
+                        min="0"
+                        value={chineseTypoConfig.min_freq}
+                        onChange={(e) =>
+                          onChineseTypoChange({
+                            ...chineseTypoConfig,
+                            min_freq: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="tone_error_rate" className="text-xs font-medium">
+                        声调错误概率
+                      </Label>
+                      <Input
+                        id="tone_error_rate"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="1"
+                        value={chineseTypoConfig.tone_error_rate}
+                        onChange={(e) =>
+                          onChineseTypoChange({
+                            ...chineseTypoConfig,
+                            tone_error_rate: parseFloat(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="word_replace_rate" className="text-xs font-medium">
+                        整词替换概率
+                      </Label>
+                      <Input
+                        id="word_replace_rate"
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        max="1"
+                        value={chineseTypoConfig.word_replace_rate}
+                        onChange={(e) =>
+                          onChineseTypoChange({
+                            ...chineseTypoConfig,
+                            word_replace_rate: parseFloat(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 回复分割器 */}
+            <div className="border-t pt-6 space-y-4">
+              <div>
+                <div className="flex items-center space-x-2 mb-4">
+                  <Switch
+                    id="enable_response_splitter"
+                    checked={responseSplitterConfig.enable}
+                    onCheckedChange={(checked) =>
+                      onResponseSplitterChange({ ...responseSplitterConfig, enable: checked })
+                    }
+                  />
+                  <Label htmlFor="enable_response_splitter" className="cursor-pointer font-semibold">
+                    回复分割器
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">
+                  控制回复的长度和句子数量
+                </p>
+
+                {responseSplitterConfig.enable && (
+                  <div className="grid gap-4 pl-6 border-l-2 border-primary/20">
+                    <div className="grid gap-2">
+                      <Label htmlFor="max_length" className="text-xs font-medium">
+                        最大长度
+                      </Label>
+                      <Input
+                        id="max_length"
+                        type="number"
+                        min="1"
+                        value={responseSplitterConfig.max_length}
+                        onChange={(e) =>
+                          onResponseSplitterChange({
+                            ...responseSplitterConfig,
+                            max_length: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">回复允许的最大字符数</p>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="max_sentence_num" className="text-xs font-medium">
+                        最大句子数
+                      </Label>
+                      <Input
+                        id="max_sentence_num"
+                        type="number"
+                        min="1"
+                        value={responseSplitterConfig.max_sentence_num}
+                        onChange={(e) =>
+                          onResponseSplitterChange({
+                            ...responseSplitterConfig,
+                            max_sentence_num: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">回复允许的最大句子数量</p>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="enable_kaomoji_protection"
+                        checked={responseSplitterConfig.enable_kaomoji_protection}
+                        onCheckedChange={(checked) =>
+                          onResponseSplitterChange({
+                            ...responseSplitterConfig,
+                            enable_kaomoji_protection: checked,
+                          })
+                        }
+                      />
+                      <Label htmlFor="enable_kaomoji_protection" className="cursor-pointer">
+                        启用颜文字保护
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="enable_overflow_return_all"
+                        checked={responseSplitterConfig.enable_overflow_return_all}
+                        onCheckedChange={(checked) =>
+                          onResponseSplitterChange({
+                            ...responseSplitterConfig,
+                            enable_overflow_return_all: checked,
+                          })
+                        }
+                      />
+                      <Label htmlFor="enable_overflow_return_all" className="cursor-pointer">
+                        超出时一次性返回全部
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground -mt-2">
+                      当句子数量超出限制时，合并后一次性返回所有内容
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -1867,6 +3175,506 @@ function LPMMSection({
             </div>
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+// 日志配置组件
+function LogSection({
+  config,
+  onChange,
+}: {
+  config: LogConfig
+  onChange: (config: LogConfig) => void
+}) {
+  const [newLibrary, setNewLibrary] = useState('')
+  const [newLogLevel, setNewLogLevel] = useState('WARNING')
+
+  const addSuppressedLibrary = () => {
+    if (newLibrary && !config.suppress_libraries.includes(newLibrary)) {
+      onChange({
+        ...config,
+        suppress_libraries: [...config.suppress_libraries, newLibrary],
+      })
+      setNewLibrary('')
+    }
+  }
+
+  const removeSuppressedLibrary = (library: string) => {
+    onChange({
+      ...config,
+      suppress_libraries: config.suppress_libraries.filter((l) => l !== library),
+    })
+  }
+
+  const addLibraryLogLevel = () => {
+    if (newLibrary && !config.library_log_levels[newLibrary]) {
+      onChange({
+        ...config,
+        library_log_levels: { ...config.library_log_levels, [newLibrary]: newLogLevel },
+      })
+      setNewLibrary('')
+      setNewLogLevel('WARNING')
+    }
+  }
+
+  const removeLibraryLogLevel = (library: string) => {
+    const newLevels = { ...config.library_log_levels }
+    delete newLevels[library]
+    onChange({ ...config, library_log_levels: newLevels })
+  }
+
+  const logLevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+  const logLevelStyles = ['FULL', 'compact', 'lite']
+  const colorTextOptions = ['none', 'title', 'full']
+
+  return (
+    <div className="rounded-lg border bg-card p-6 space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-4">日志配置</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label>日期格式</Label>
+            <Input
+              value={config.date_style}
+              onChange={(e) => onChange({ ...config, date_style: e.target.value })}
+              placeholder="例如: m-d H:i:s"
+            />
+            <p className="text-xs text-muted-foreground">m=月, d=日, H=时, i=分, s=秒</p>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>日志级别样式</Label>
+            <Select
+              value={config.log_level_style}
+              onValueChange={(value) => onChange({ ...config, log_level_style: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {logLevelStyles.map((style) => (
+                  <SelectItem key={style} value={style}>
+                    {style}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>日志文本颜色</Label>
+            <Select
+              value={config.color_text}
+              onValueChange={(value) => onChange({ ...config, color_text: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {colorTextOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>全局日志级别</Label>
+            <Select
+              value={config.log_level}
+              onValueChange={(value) => onChange({ ...config, log_level: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {logLevels.map((level) => (
+                  <SelectItem key={level} value={level}>
+                    {level}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>控制台日志级别</Label>
+            <Select
+              value={config.console_log_level}
+              onValueChange={(value) => onChange({ ...config, console_log_level: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {logLevels.map((level) => (
+                  <SelectItem key={level} value={level}>
+                    {level}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>文件日志级别</Label>
+            <Select
+              value={config.file_log_level}
+              onValueChange={(value) => onChange({ ...config, file_log_level: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {logLevels.map((level) => (
+                  <SelectItem key={level} value={level}>
+                    {level}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {/* 屏蔽的库 */}
+      <div>
+        <Label className="mb-2 block">完全屏蔽的库</Label>
+        <div className="flex gap-2 mb-2">
+          <Input
+            value={newLibrary}
+            onChange={(e) => setNewLibrary(e.target.value)}
+            placeholder="输入库名"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                addSuppressedLibrary()
+              }
+            }}
+          />
+          <Button onClick={addSuppressedLibrary} size="sm">
+            <Plus className="h-4 w-4" strokeWidth={2} fill="none" />
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {config.suppress_libraries.map((library) => (
+            <div
+              key={library}
+              className="flex items-center gap-1 bg-secondary px-3 py-1 rounded-md"
+            >
+              <span className="text-sm">{library}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0"
+                onClick={() => removeSuppressedLibrary(library)}
+              >
+                <Trash2 className="h-3 w-3" strokeWidth={2} fill="none" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 特定库日志级别 */}
+      <div>
+        <Label className="mb-2 block">特定库的日志级别</Label>
+        <div className="flex gap-2 mb-2">
+          <Input
+            value={newLibrary}
+            onChange={(e) => setNewLibrary(e.target.value)}
+            placeholder="输入库名"
+            className="flex-1"
+          />
+          <Select value={newLogLevel} onValueChange={setNewLogLevel}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {logLevels.map((level) => (
+                <SelectItem key={level} value={level}>
+                  {level}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={addLibraryLogLevel} size="sm">
+            <Plus className="h-4 w-4" strokeWidth={2} fill="none" />
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {Object.entries(config.library_log_levels).map(([library, level]) => (
+            <div
+              key={library}
+              className="flex items-center justify-between bg-secondary px-3 py-2 rounded-md"
+            >
+              <span className="text-sm font-medium">{library}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{level}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => removeLibraryLogLevel(library)}
+                >
+                  <Trash2 className="h-3 w-3" strokeWidth={2} fill="none" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 调试配置组件
+function DebugSection({
+  config,
+  onChange,
+}: {
+  config: DebugConfig
+  onChange: (config: DebugConfig) => void
+}) {
+  return (
+    <div className="rounded-lg border bg-card p-6 space-y-4">
+      <h3 className="text-lg font-semibold">调试配置</h3>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>显示 Prompt</Label>
+            <p className="text-sm text-muted-foreground">是否在日志中显示提示词</p>
+          </div>
+          <Switch
+            checked={config.show_prompt}
+            onCheckedChange={(checked) => onChange({ ...config, show_prompt: checked })}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>显示回复器 Prompt</Label>
+            <p className="text-sm text-muted-foreground">是否显示回复器的提示词</p>
+          </div>
+          <Switch
+            checked={config.show_replyer_prompt}
+            onCheckedChange={(checked) => onChange({ ...config, show_replyer_prompt: checked })}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>显示回复器推理</Label>
+            <p className="text-sm text-muted-foreground">是否显示回复器的推理过程</p>
+          </div>
+          <Switch
+            checked={config.show_replyer_reasoning}
+            onCheckedChange={(checked) =>
+              onChange({ ...config, show_replyer_reasoning: checked })
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>显示 Jargon Prompt</Label>
+            <p className="text-sm text-muted-foreground">是否显示术语相关的提示词</p>
+          </div>
+          <Switch
+            checked={config.show_jargon_prompt}
+            onCheckedChange={(checked) => onChange({ ...config, show_jargon_prompt: checked })}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// MaimMessage 配置组件
+function MaimMessageSection({
+  config,
+  onChange,
+}: {
+  config: MaimMessageConfig
+  onChange: (config: MaimMessageConfig) => void
+}) {
+  const [newToken, setNewToken] = useState('')
+
+  const addToken = () => {
+    if (newToken && !config.auth_token.includes(newToken)) {
+      onChange({ ...config, auth_token: [...config.auth_token, newToken] })
+      setNewToken('')
+    }
+  }
+
+  const removeToken = (index: number) => {
+    onChange({
+      ...config,
+      auth_token: config.auth_token.filter((_, i) => i !== index),
+    })
+  }
+
+  return (
+    <div className="rounded-lg border bg-card p-6 space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-4">MaimMessage 服务配置</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>启用自定义服务器</Label>
+              <p className="text-sm text-muted-foreground">
+                是否使用自定义的 MaimMessage 服务器
+              </p>
+            </div>
+            <Switch
+              checked={config.use_custom}
+              onCheckedChange={(checked) => onChange({ ...config, use_custom: checked })}
+            />
+          </div>
+
+          {config.use_custom && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>主机地址</Label>
+                  <Input
+                    value={config.host}
+                    onChange={(e) => onChange({ ...config, host: e.target.value })}
+                    placeholder="127.0.0.1"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>端口号</Label>
+                  <Input
+                    type="number"
+                    value={config.port}
+                    onChange={(e) => onChange({ ...config, port: parseInt(e.target.value) })}
+                    placeholder="8090"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>连接模式</Label>
+                  <Select
+                    value={config.mode}
+                    onValueChange={(value) => onChange({ ...config, mode: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ws">WebSocket (ws)</SelectItem>
+                      <SelectItem value="tcp">TCP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={config.use_wss}
+                    onCheckedChange={(checked) => onChange({ ...config, use_wss: checked })}
+                    disabled={config.mode !== 'ws'}
+                  />
+                  <Label>使用 WSS 安全连接</Label>
+                </div>
+              </div>
+
+              {config.use_wss && config.mode === 'ws' && (
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label>SSL 证书文件路径</Label>
+                    <Input
+                      value={config.cert_file}
+                      onChange={(e) => onChange({ ...config, cert_file: e.target.value })}
+                      placeholder="cert.pem"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>SSL 密钥文件路径</Label>
+                    <Input
+                      value={config.key_file}
+                      onChange={(e) => onChange({ ...config, key_file: e.target.value })}
+                      placeholder="key.pem"
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* 认证令牌 */}
+      <div>
+        <Label className="mb-2 block">认证令牌</Label>
+        <p className="text-sm text-muted-foreground mb-2">用于 API 验证，为空则不启用验证</p>
+        <div className="flex gap-2 mb-2">
+          <Input
+            value={newToken}
+            onChange={(e) => setNewToken(e.target.value)}
+            placeholder="输入认证令牌"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                addToken()
+              }
+            }}
+          />
+          <Button onClick={addToken} size="sm">
+            <Plus className="h-4 w-4" strokeWidth={2} fill="none" />
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {config.auth_token.map((token, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between bg-secondary px-3 py-2 rounded-md"
+            >
+              <span className="text-sm font-mono">{token}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => removeToken(index)}
+              >
+                <Trash2 className="h-3 w-3" strokeWidth={2} fill="none" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 统计信息配置组件
+function TelemetrySection({
+  config,
+  onChange,
+}: {
+  config: TelemetryConfig
+  onChange: (config: TelemetryConfig) => void
+}) {
+  return (
+    <div className="rounded-lg border bg-card p-6 space-y-4">
+      <h3 className="text-lg font-semibold">统计信息</h3>
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label>启用统计信息发送</Label>
+          <p className="text-sm text-muted-foreground">
+            发送匿名统计信息，帮助我们了解全球有多少只麦麦在运行
+          </p>
+        </div>
+        <Switch
+          checked={config.enable}
+          onCheckedChange={(checked) => onChange({ ...config, enable: checked })}
+        />
       </div>
     </div>
   )

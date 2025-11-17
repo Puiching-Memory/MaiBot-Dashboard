@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Table,
   TableBody,
@@ -279,27 +280,28 @@ export function ModelProviderConfigPage() {
         </div>
       </div>
 
-      {/* 搜索框 */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="搜索提供商名称、URL 或类型..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+      <ScrollArea className="h-[calc(100vh-260px)]">
+        {/* 搜索框 */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="搜索提供商名称、URL 或类型..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          {searchQuery && (
+            <p className="text-sm text-muted-foreground">
+              找到 {filteredProviders.length} 个结果
+            </p>
+          )}
         </div>
-        {searchQuery && (
-          <p className="text-sm text-muted-foreground">
-            找到 {filteredProviders.length} 个结果
-          </p>
-        )}
-      </div>
 
-      {/* 提供商列表表格 */}
-      <div className="rounded-lg border bg-card">
-        <Table>
+        {/* 提供商列表表格 */}
+        <div className="rounded-lg border bg-card mt-4">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>名称</TableHead>
@@ -353,6 +355,7 @@ export function ModelProviderConfigPage() {
           </TableBody>
         </Table>
       </div>
+      </ScrollArea>
 
       {/* 编辑对话框 */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
