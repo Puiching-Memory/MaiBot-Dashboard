@@ -7,6 +7,10 @@ import { NotFoundPage } from './routes/404'
 import { BotConfigPage } from './routes/config/bot'
 import { ModelProviderConfigPage } from './routes/config/modelProvider'
 import { ModelConfigPage } from './routes/config/model'
+import { EmojiManagementPage } from './routes/resource/emoji'
+import { ExpressionManagementPage } from './routes/resource/expression'
+import { RelationshipManagementPage } from './routes/resource/relationship'
+import { LogViewerPage } from './routes/logs'
 import { Layout } from './components/layout'
 import { checkAuth } from './hooks/use-auth'
 
@@ -72,6 +76,34 @@ const modelConfigRoute = createRoute({
   component: ModelConfigPage,
 })
 
+// 资源管理路由 - 表情包管理
+const emojiManagementRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/resource/emoji',
+  component: EmojiManagementPage,
+})
+
+// 资源管理路由 - 表达方式管理
+const expressionManagementRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/resource/expression',
+  component: ExpressionManagementPage,
+})
+
+// 资源管理路由 - 人物关系管理
+const relationshipManagementRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/resource/relationship',
+  component: RelationshipManagementPage,
+})
+
+// 日志查看器路由
+const logsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/logs',
+  component: LogViewerPage,
+})
+
 // 设置页路由
 const settingsRoute = createRoute({
   getParentRoute: () => protectedRoute,
@@ -94,6 +126,10 @@ const routeTree = rootRoute.addChildren([
     botConfigRoute,
     modelProviderConfigRoute,
     modelConfigRoute,
+    emojiManagementRoute,
+    expressionManagementRoute,
+    relationshipManagementRoute,
+    logsRoute,
     settingsRoute,
   ]),
   notFoundRoute,

@@ -1,4 +1,4 @@
-import { Menu, Moon, Sun, ChevronLeft, Home, Settings, LogOut, FileText, Server, Boxes } from 'lucide-react'
+import { Menu, Moon, Sun, ChevronLeft, Home, Settings, LogOut, FileText, Server, Boxes, Smile, MessageSquare, Users, FileSearch } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { useTheme, toggleThemeWithTransition } from './use-theme'
@@ -46,6 +46,20 @@ export function Layout({ children }: LayoutProps) {
         { icon: FileText, label: '麦麦主程序配置', path: '/config/bot' },
         { icon: Server, label: '麦麦模型提供商配置', path: '/config/modelProvider' },
         { icon: Boxes, label: '麦麦模型配置', path: '/config/model' },
+      ],
+    },
+    {
+      title: '麦麦资源管理',
+      items: [
+        { icon: Smile, label: '表情包管理', path: '/resource/emoji' },
+        { icon: MessageSquare, label: '表达方式管理', path: '/resource/expression' },
+        { icon: Users, label: '人物关系管理', path: '/resource/relationship' },
+      ],
+    },
+    {
+      title: '运维与监控',
+      items: [
+        { icon: FileSearch, label: '日志查看器', path: '/logs' },
       ],
     },
     {
