@@ -465,7 +465,7 @@ export function BotConfigPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
+      <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
         <div className="flex items-center justify-center h-64">
           <p className="text-muted-foreground">加载中...</p>
         </div>
@@ -474,7 +474,7 @@ export function BotConfigPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       {/* 页面标题 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
