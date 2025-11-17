@@ -322,14 +322,19 @@ export function ModelConfigPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-4 sm:space-y-6">
       {/* 页面标题 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">模型配置</h1>
-          <p className="text-muted-foreground mt-2">管理模型和任务配置</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">模型配置</h1>
+          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">管理模型和任务配置</p>
         </div>
-        <Button onClick={saveConfig} disabled={saving || autoSaving || !hasUnsavedChanges} size="sm">
+        <Button 
+          onClick={saveConfig} 
+          disabled={saving || autoSaving || !hasUnsavedChanges} 
+          size="sm"
+          className="w-full sm:w-auto"
+        >
           <Save className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
           {saving ? '保存中...' : autoSaving ? '自动保存中...' : hasUnsavedChanges ? '保存配置' : '已保存'}
         </Button>
@@ -337,7 +342,7 @@ export function ModelConfigPage() {
 
       {/* 标签页 */}
       <Tabs defaultValue="models" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-full sm:max-w-md grid-cols-2">
           <TabsTrigger value="models">模型配置</TabsTrigger>
           <TabsTrigger value="tasks">模型任务配置</TabsTrigger>
         </TabsList>
@@ -345,19 +350,19 @@ export function ModelConfigPage() {
         <ScrollArea className="h-[calc(100vh-320px)]">
           {/* 模型配置标签页 */}
           <TabsContent value="models" className="space-y-4 mt-0">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <p className="text-sm text-muted-foreground">
                 配置可用的模型列表
               </p>
-              <Button onClick={() => openEditDialog(null, null)} size="sm" variant="outline">
+              <Button onClick={() => openEditDialog(null, null)} size="sm" variant="outline" className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
                 添加模型
               </Button>
             </div>
 
           {/* 搜索框 */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            <div className="relative w-full sm:flex-1 sm:max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="搜索模型名称、标识符或提供商..."
@@ -367,13 +372,70 @@ export function ModelConfigPage() {
               />
             </div>
             {searchQuery && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground whitespace-nowrap">
                 找到 {filteredModels.length} 个结果
               </p>
             )}
           </div>
 
-          <div className="rounded-lg border bg-card">
+          {/* 模型列表 - 移动端卡片视图 */}
+          <div className="md:hidden space-y-3">
+            {filteredModels.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8 rounded-lg border bg-card">
+                {searchQuery ? '未找到匹配的模型' : '暂无模型配置'}
+              </div>
+            ) : (
+              filteredModels.map((model, index) => (
+                <div key={index} className="rounded-lg border bg-card p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-base">{model.name}</h3>
+                      <p className="text-xs text-muted-foreground mt-1 break-all" title={model.model_identifier}>
+                        {model.model_identifier}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog(model, index)}
+                      >
+                        <Pencil className="h-4 w-4" strokeWidth={2} fill="none" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openDeleteDialog(index)}
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={2} fill="none" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground text-xs">提供商</span>
+                      <p className="font-medium">{model.api_provider}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">强制流式</span>
+                      <p className="font-medium">{model.force_stream_mode ? '是' : '否'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">输入价格</span>
+                      <p className="font-medium">¥{model.price_in}/M</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">输出价格</span>
+                      <p className="font-medium">¥{model.price_out}/M</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* 模型列表 - 桌面端表格视图 */}
+          <div className="hidden md:block rounded-lg border bg-card overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -389,7 +451,7 @@ export function ModelConfigPage() {
               <TableBody>
                 {filteredModels.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       {searchQuery ? '未找到匹配的模型' : '暂无模型配置'}
                     </TableCell>
                   </TableRow>
@@ -433,13 +495,13 @@ export function ModelConfigPage() {
         </TabsContent>
 
         {/* 模型任务配置标签页 */}
-        <TabsContent value="tasks" className="space-y-6">
+        <TabsContent value="tasks" className="space-y-6 mt-0">
           <p className="text-sm text-muted-foreground">
             为不同的任务配置使用的模型和参数
           </p>
 
           {taskConfig && (
-            <div className="grid gap-6">
+            <div className="grid gap-4 sm:gap-6">
               {/* Utils 任务 */}
               <TaskConfigCard
                 title="组件模型 (utils)"
@@ -557,7 +619,7 @@ export function ModelConfigPage() {
 
       {/* 编辑模型对话框 */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingIndex !== null ? '编辑模型' : '添加模型'}
@@ -623,7 +685,7 @@ export function ModelConfigPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="price_in">输入价格 (¥/M token)</Label>
                 <Input
@@ -731,10 +793,10 @@ function TaskConfigCard({
   }
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-4">
       <div>
-        <h4 className="font-semibold">{title}</h4>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <h4 className="font-semibold text-base sm:text-lg">{title}</h4>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1">{description}</p>
       </div>
 
       <div className="grid gap-4">
@@ -751,7 +813,7 @@ function TaskConfigCard({
         </div>
 
         {/* 温度和最大 Token */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {!hideTemperature && (
             <div className="grid gap-2">
               <Label>温度</Label>

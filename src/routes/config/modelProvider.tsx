@@ -256,15 +256,15 @@ export function ModelProviderConfigPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-4 sm:space-y-6">
       {/* 页面标题 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">模型提供商配置</h1>
-          <p className="text-muted-foreground mt-2">管理 API 提供商配置</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">模型提供商配置</h1>
+          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">管理 API 提供商配置</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => openEditDialog(null, null)} size="sm">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button onClick={() => openEditDialog(null, null)} size="sm" className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
             添加提供商
           </Button>
@@ -273,6 +273,7 @@ export function ModelProviderConfigPage() {
             disabled={saving || autoSaving || !hasUnsavedChanges} 
             size="sm" 
             variant="default"
+            className="w-full sm:w-auto"
           >
             <Save className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
             {saving ? '保存中...' : autoSaving ? '自动保存中...' : hasUnsavedChanges ? '保存配置' : '已保存'}
@@ -282,8 +283,8 @@ export function ModelProviderConfigPage() {
 
       <ScrollArea className="h-[calc(100vh-260px)]">
         {/* 搜索框 */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-4">
+          <div className="relative w-full sm:flex-1 sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="搜索提供商名称、URL 或类型..."
@@ -293,73 +294,127 @@ export function ModelProviderConfigPage() {
             />
           </div>
           {searchQuery && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground whitespace-nowrap">
               找到 {filteredProviders.length} 个结果
             </p>
           )}
         </div>
 
-        {/* 提供商列表表格 */}
-        <div className="rounded-lg border bg-card mt-4">
+        {/* 提供商列表 - 移动端卡片视图 */}
+        <div className="md:hidden space-y-3">
+          {filteredProviders.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8 rounded-lg border bg-card">
+              {searchQuery ? '未找到匹配的提供商' : '暂无提供商配置，点击"添加提供商"开始配置'}
+            </div>
+          ) : (
+            filteredProviders.map((provider, index) => (
+              <div key={index} className="rounded-lg border bg-card p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-base truncate">{provider.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-1 break-all">{provider.base_url}</p>
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEditDialog(provider, index)}
+                    >
+                      <Pencil className="h-4 w-4" strokeWidth={2} fill="none" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openDeleteDialog(index)}
+                    >
+                      <Trash2 className="h-4 w-4" strokeWidth={2} fill="none" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground text-xs">客户端类型</span>
+                    <p className="font-medium">{provider.client_type}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs">最大重试</span>
+                    <p className="font-medium">{provider.max_retry}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs">超时(秒)</span>
+                    <p className="font-medium">{provider.timeout}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs">重试间隔(秒)</span>
+                    <p className="font-medium">{provider.retry_interval}</p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* 提供商列表 - 桌面端表格视图 */}
+        <div className="hidden md:block rounded-lg border bg-card overflow-hidden">
           <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>名称</TableHead>
-              <TableHead>基础URL</TableHead>
-              <TableHead>客户端类型</TableHead>
-              <TableHead className="text-right">最大重试</TableHead>
-              <TableHead className="text-right">超时(秒)</TableHead>
-              <TableHead className="text-right">重试间隔(秒)</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredProviders.length === 0 ? (
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  {searchQuery ? '未找到匹配的提供商' : '暂无提供商配置，点击"添加提供商"开始配置'}
-                </TableCell>
+                <TableHead>名称</TableHead>
+                <TableHead>基础URL</TableHead>
+                <TableHead>客户端类型</TableHead>
+                <TableHead className="text-right">最大重试</TableHead>
+                <TableHead className="text-right">超时(秒)</TableHead>
+                <TableHead className="text-right">重试间隔(秒)</TableHead>
+                <TableHead className="text-right">操作</TableHead>
               </TableRow>
-            ) : (
-              filteredProviders.map((provider, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">{provider.name}</TableCell>
-                  <TableCell className="max-w-xs truncate" title={provider.base_url}>
-                    {provider.base_url}
-                  </TableCell>
-                  <TableCell>{provider.client_type}</TableCell>
-                  <TableCell className="text-right">{provider.max_retry}</TableCell>
-                  <TableCell className="text-right">{provider.timeout}</TableCell>
-                  <TableCell className="text-right">{provider.retry_interval}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditDialog(provider, index)}
-                      >
-                        <Pencil className="h-4 w-4" strokeWidth={2} fill="none" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openDeleteDialog(index)}
-                      >
-                        <Trash2 className="h-4 w-4" strokeWidth={2} fill="none" />
-                      </Button>
-                    </div>
+            </TableHeader>
+            <TableBody>
+              {filteredProviders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    {searchQuery ? '未找到匹配的提供商' : '暂无提供商配置，点击"添加提供商"开始配置'}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : (
+                filteredProviders.map((provider, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{provider.name}</TableCell>
+                    <TableCell className="max-w-xs truncate" title={provider.base_url}>
+                      {provider.base_url}
+                    </TableCell>
+                    <TableCell>{provider.client_type}</TableCell>
+                    <TableCell className="text-right">{provider.max_retry}</TableCell>
+                    <TableCell className="text-right">{provider.timeout}</TableCell>
+                    <TableCell className="text-right">{provider.retry_interval}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditDialog(provider, index)}
+                        >
+                          <Pencil className="h-4 w-4" strokeWidth={2} fill="none" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openDeleteDialog(index)}
+                        >
+                          <Trash2 className="h-4 w-4" strokeWidth={2} fill="none" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </ScrollArea>
 
       {/* 编辑对话框 */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingIndex !== null ? '编辑提供商' : '添加提供商'}
@@ -458,7 +513,7 @@ export function ModelProviderConfigPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="max_retry">最大重试</Label>
                 <Input

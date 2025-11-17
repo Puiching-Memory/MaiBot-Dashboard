@@ -465,7 +465,7 @@ export function BotConfigPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
+      <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
         <div className="flex items-center justify-center h-64">
           <p className="text-muted-foreground">加载中...</p>
         </div>
@@ -474,17 +474,18 @@ export function BotConfigPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-4 sm:space-y-6">
       {/* 页面标题 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">麦麦主程序配置</h1>
-          <p className="text-muted-foreground mt-2">管理麦麦的核心功能和行为设置</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">麦麦主程序配置</h1>
+          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">管理麦麦的核心功能和行为设置</p>
         </div>
         <Button
           onClick={saveConfig}
           disabled={saving || autoSaving || !hasUnsavedChanges}
           size="sm"
+          className="w-full sm:w-auto"
         >
           <Save className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
           {saving ? '保存中...' : autoSaving ? '自动保存中...' : hasUnsavedChanges ? '保存配置' : '已保存'}
@@ -493,20 +494,22 @@ export function BotConfigPage() {
 
       {/* 标签页 */}
       <Tabs defaultValue="bot" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
-          <TabsTrigger value="bot">基本信息</TabsTrigger>
-          <TabsTrigger value="personality">人格</TabsTrigger>
-          <TabsTrigger value="chat">聊天</TabsTrigger>
-          <TabsTrigger value="expression">表达</TabsTrigger>
-          <TabsTrigger value="features">功能</TabsTrigger>
-          <TabsTrigger value="processing">处理</TabsTrigger>
-          <TabsTrigger value="mood">情绪</TabsTrigger>
-          <TabsTrigger value="voice">语音</TabsTrigger>
-          <TabsTrigger value="lpmm">知识库</TabsTrigger>
-          <TabsTrigger value="other">其他</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-5 lg:grid-cols-10">
+            <TabsTrigger value="bot" className="flex-shrink-0">基本信息</TabsTrigger>
+            <TabsTrigger value="personality" className="flex-shrink-0">人格</TabsTrigger>
+            <TabsTrigger value="chat" className="flex-shrink-0">聊天</TabsTrigger>
+            <TabsTrigger value="expression" className="flex-shrink-0">表达</TabsTrigger>
+            <TabsTrigger value="features" className="flex-shrink-0">功能</TabsTrigger>
+            <TabsTrigger value="processing" className="flex-shrink-0">处理</TabsTrigger>
+            <TabsTrigger value="mood" className="flex-shrink-0">情绪</TabsTrigger>
+            <TabsTrigger value="voice" className="flex-shrink-0">语音</TabsTrigger>
+            <TabsTrigger value="lpmm" className="flex-shrink-0">知识库</TabsTrigger>
+            <TabsTrigger value="other" className="flex-shrink-0">其他</TabsTrigger>
+          </TabsList>
+        </div>
 
-        <ScrollArea className="h-[calc(100vh-320px)]">
+        <ScrollArea className="h-[calc(100vh-320px)] sm:h-[calc(100vh-320px)]">
           {/* 基本信息 */}
           <TabsContent value="bot" className="space-y-4">
             {botConfig && <BotInfoSection config={botConfig} onChange={setBotConfig} />}
@@ -1020,7 +1023,7 @@ function ChatSection({
           <div className="space-y-4">
             <div>
               <h4 className="font-medium text-sm mb-3">开始时间</h4>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div>
                   <Label className="text-xs">小时</Label>
                   <Select
@@ -1067,7 +1070,7 @@ function ChatSection({
             </div>
             <div>
               <h4 className="font-medium text-sm mb-3">结束时间</h4>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div>
                   <Label className="text-xs">小时</Label>
                   <Select
@@ -2190,10 +2193,10 @@ function ProcessingSection({
             正则编辑器
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-[900px] max-h-[90vh]">
+        <DialogContent className="max-w-[95vw] sm:max-w-[900px] max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>正则表达式编辑器</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-sm">
               使用可视化工具构建正则表达式，并实时测试效果
             </DialogDescription>
           </DialogHeader>
@@ -2236,7 +2239,7 @@ function ProcessingSection({
                 {patterns.map((category) => (
                   <div key={category.category} className="space-y-2">
                     <h5 className="text-xs font-semibold text-primary">{category.category}</h5>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {category.items.map((item) => (
                         <Button
                           key={item.label}
@@ -2525,7 +2528,7 @@ function ProcessingSection({
             预览
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[500px]">
+        <PopoverContent className="w-[95vw] sm:w-[500px]">
           <div className="space-y-2">
             <h4 className="font-medium text-sm">配置预览</h4>
             <ScrollArea className="h-60 rounded-md bg-muted p-3">
@@ -2553,7 +2556,7 @@ function ProcessingSection({
             预览
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[500px]">
+        <PopoverContent className="w-[95vw] sm:w-[500px]">
           <div className="space-y-2">
             <h4 className="font-medium text-sm">配置预览</h4>
             <ScrollArea className="h-60 rounded-md bg-muted p-3">
@@ -3122,7 +3125,7 @@ function LPMMSection({
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>同义词搜索 TopK</Label>
                 <Input
@@ -3230,10 +3233,10 @@ function LogSection({
   const colorTextOptions = ['none', 'title', 'full']
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-6">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">日志配置</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="grid gap-2">
             <Label>日期格式</Label>
             <Input
@@ -3349,6 +3352,7 @@ function LogSection({
             value={newLibrary}
             onChange={(e) => setNewLibrary(e.target.value)}
             placeholder="输入库名"
+            className="flex-1"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
@@ -3356,7 +3360,7 @@ function LogSection({
               }
             }}
           />
-          <Button onClick={addSuppressedLibrary} size="sm">
+          <Button onClick={addSuppressedLibrary} size="sm" className="flex-shrink-0">
             <Plus className="h-4 w-4" strokeWidth={2} fill="none" />
           </Button>
         </div>
@@ -3538,7 +3542,7 @@ function MaimMessageSection({
 
           {config.use_custom && (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label>主机地址</Label>
                   <Input
