@@ -170,7 +170,8 @@ export function IndexPage() {
   } satisfies ChartConfig
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+    <ScrollArea className="h-full">
+      <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       {/* 标题和控制栏 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -613,5 +614,6 @@ export function IndexPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </ScrollArea>
   )
 }

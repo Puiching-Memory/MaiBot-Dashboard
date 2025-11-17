@@ -4,6 +4,12 @@ import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { useTheme, toggleThemeWithTransition } from './use-theme'
 import { useAuthGuard } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { formatVersion } from '@/lib/version'
 import type { ReactNode, ComponentType } from 'react'
@@ -90,6 +96,7 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <aside
@@ -106,7 +113,7 @@ export function Layout({ children }: LayoutProps) {
           <div
             className={cn(
               'relative flex items-center justify-center flex-1 transition-all overflow-hidden',
-              // 移动端始终完整显示，桌面端根据 sidebarOpen 切换
+              // 移动端始终完整显示,桌面端根据 sidebarOpen 切换
               'lg:flex-1',
               !sidebarOpen && 'lg:flex-none lg:w-8'
             )}
@@ -126,14 +133,6 @@ export function Layout({ children }: LayoutProps) {
               <span className="hidden lg:block font-bold text-primary text-2xl">M</span>
             )}
           </div>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="hidden rounded-lg p-2 hover:bg-accent lg:block flex-shrink-0 ml-2"
-          >
-            <ChevronLeft
-              className={cn('h-4 w-4 transition-transform', !sidebarOpen && 'rotate-180')}
-            />
-          </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto p-4">
@@ -167,41 +166,62 @@ export function Layout({ children }: LayoutProps) {
                     const isActive = matchRoute({ to: item.path })
                     const Icon = item.icon
 
-                    return (
-                      <li key={item.path} className="relative">
-                        <Link
-                          to={item.path}
-                          className={cn(
-                            'relative flex items-center gap-3 rounded-lg px-3 py-2 transition-colors',
-                            'hover:bg-accent hover:text-accent-foreground',
-                            isActive
-                              ? 'bg-accent text-foreground'
-                              : 'text-muted-foreground hover:text-foreground',
-                            !sidebarOpen && 'lg:justify-center lg:px-0'
-                          )}
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
-                          {/* 左侧高亮条 */}
-                          {isActive && (
-                            <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
-                          )}
+                    const menuItemContent = (
+                      <>
+                        {/* 左侧高亮条 */}
+                        {isActive && (
+                          <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-primary transition-opacity duration-300" />
+                        )}
+                        <div className={cn(
+                          'flex items-center transition-all duration-300',
+                          sidebarOpen ? 'gap-3' : 'lg:gap-0'
+                        )}>
                           <Icon
                             className={cn(
                               'h-5 w-5 flex-shrink-0',
-                              !sidebarOpen && 'lg:mx-auto',
                               isActive && 'text-primary'
                             )}
                             strokeWidth={2}
                             fill="none"
                           />
                           <span className={cn(
-                            'text-sm font-medium whitespace-nowrap animate-in fade-in duration-300 delay-200',
+                            'text-sm font-medium whitespace-nowrap transition-all duration-300',
                             isActive && 'font-semibold',
-                            !sidebarOpen && 'lg:hidden'
+                            sidebarOpen 
+                              ? 'opacity-100 max-w-[200px]' 
+                              : 'lg:opacity-0 lg:max-w-0 lg:overflow-hidden'
                           )}>
                             {item.label}
                           </span>
-                        </Link>
+                        </div>
+                      </>
+                    )
+
+                    return (
+                      <li key={item.path} className="relative">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Link
+                              to={item.path}
+                              className={cn(
+                                'relative flex items-center rounded-lg py-2 transition-all duration-300',
+                                'hover:bg-accent hover:text-accent-foreground',
+                                isActive
+                                  ? 'bg-accent text-foreground'
+                                  : 'text-muted-foreground hover:text-foreground',
+                                sidebarOpen ? 'px-3' : 'lg:px-0 lg:justify-center'
+                              )}
+                              onClick={() => setMobileMenuOpen(false)}
+                            >
+                              {menuItemContent}
+                            </Link>
+                          </TooltipTrigger>
+                          {!sidebarOpen && (
+                            <TooltipContent side="right" className="hidden lg:block">
+                              <p>{item.label}</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
                       </li>
                     )
                   })}
@@ -231,6 +251,17 @@ export function Layout({ children }: LayoutProps) {
               className="rounded-lg p-2 hover:bg-accent lg:hidden"
             >
               <Menu className="h-5 w-5" />
+            </button>
+            
+            {/* 桌面端侧边栏收起/展开按钮 */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="hidden rounded-lg p-2 hover:bg-accent lg:block"
+              title={sidebarOpen ? '收起侧边栏' : '展开侧边栏'}
+            >
+              <ChevronLeft
+                className={cn('h-5 w-5 transition-transform', !sidebarOpen && 'rotate-180')}
+              />
             </button>
           </div>
 
@@ -265,8 +296,9 @@ export function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-background p-6">{children}</main>
+        <main className="flex-1 overflow-hidden bg-background">{children}</main>
       </div>
     </div>
+    </TooltipProvider>
   )
 }
