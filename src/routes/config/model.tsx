@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +20,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,8 +37,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Pencil, Trash2, Save } from 'lucide-react'
-import { getModelConfig, updateModelConfig } from '@/lib/config-api'
+import { Plus, Pencil, Trash2, Save, Search } from 'lucide-react'
+import { getModelConfig, updateModelConfig, updateModelConfigSection } from '@/lib/config-api'
+import { useToast } from '@/hooks/use-toast'
+import { MultiSelect } from '@/components/ui/multi-select'
 
 interface ModelInfo {
   model_identifier: string
@@ -67,9 +79,20 @@ export function ModelConfigPage() {
   const [taskConfig, setTaskConfig] = useState<ModelTaskConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [autoSaving, setAutoSaving] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingModel, setEditingModel] = useState<ModelInfo | null>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletingIndex, setDeletingIndex] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const { toast } = useToast()
+
+  // 用于防抖的定时器
+  const modelsAutoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const taskConfigAutoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const initialLoadRef = useRef(true)
 
   // 加载配置
   useEffect(() => {
@@ -88,6 +111,8 @@ export function ModelConfigPage() {
       setProviders(providerList.map((p) => p.name))
       
       setTaskConfig((config.model_task_config as ModelTaskConfig) || null)
+      setHasUnsavedChanges(false)
+      initialLoadRef.current = false
     } catch (error) {
       console.error('加载配置失败:', error)
     } finally {
@@ -95,19 +120,110 @@ export function ModelConfigPage() {
     }
   }
 
-  // 保存配置
+  // 自动保存模型列表
+  const autoSaveModels = useCallback(async (newModels: ModelInfo[]) => {
+    if (initialLoadRef.current) return
+    
+    try {
+      setAutoSaving(true)
+      await updateModelConfigSection('models', newModels)
+      setHasUnsavedChanges(false)
+    } catch (error) {
+      console.error('自动保存模型列表失败:', error)
+      setHasUnsavedChanges(true)
+    } finally {
+      setAutoSaving(false)
+    }
+  }, [])
+
+  // 自动保存任务配置
+  const autoSaveTaskConfig = useCallback(async (newTaskConfig: ModelTaskConfig) => {
+    if (initialLoadRef.current) return
+    
+    try {
+      setAutoSaving(true)
+      await updateModelConfigSection('model_task_config', newTaskConfig)
+      setHasUnsavedChanges(false)
+    } catch (error) {
+      console.error('自动保存任务配置失败:', error)
+      setHasUnsavedChanges(true)
+    } finally {
+      setAutoSaving(false)
+    }
+  }, [])
+
+  // 监听 models 变化
+  useEffect(() => {
+    if (initialLoadRef.current) return
+
+    setHasUnsavedChanges(true)
+
+    if (modelsAutoSaveTimerRef.current) {
+      clearTimeout(modelsAutoSaveTimerRef.current)
+    }
+
+    modelsAutoSaveTimerRef.current = setTimeout(() => {
+      autoSaveModels(models)
+    }, 2000)
+
+    return () => {
+      if (modelsAutoSaveTimerRef.current) {
+        clearTimeout(modelsAutoSaveTimerRef.current)
+      }
+    }
+  }, [models, autoSaveModels])
+
+  // 监听 taskConfig 变化
+  useEffect(() => {
+    if (initialLoadRef.current || !taskConfig) return
+
+    setHasUnsavedChanges(true)
+
+    if (taskConfigAutoSaveTimerRef.current) {
+      clearTimeout(taskConfigAutoSaveTimerRef.current)
+    }
+
+    taskConfigAutoSaveTimerRef.current = setTimeout(() => {
+      autoSaveTaskConfig(taskConfig)
+    }, 2000)
+
+    return () => {
+      if (taskConfigAutoSaveTimerRef.current) {
+        clearTimeout(taskConfigAutoSaveTimerRef.current)
+      }
+    }
+  }, [taskConfig, autoSaveTaskConfig])
+
+  // 保存配置（手动保存）
   const saveConfig = async () => {
     try {
       setSaving(true)
+      
+      // 先取消自动保存定时器
+      if (modelsAutoSaveTimerRef.current) {
+        clearTimeout(modelsAutoSaveTimerRef.current)
+      }
+      if (taskConfigAutoSaveTimerRef.current) {
+        clearTimeout(taskConfigAutoSaveTimerRef.current)
+      }
+
       const config = await getModelConfig()
       config.models = models
       config.model_task_config = taskConfig
       await updateModelConfig(config)
-      alert('配置已保存')
+      setHasUnsavedChanges(false)
+      toast({
+        title: '保存成功',
+        description: '模型配置已保存',
+      })
       await loadConfig() // 重新加载以更新模型名称列表
     } catch (error) {
       console.error('保存配置失败:', error)
-      alert('保存失败: ' + (error as Error).message)
+      toast({
+        title: '保存失败',
+        description: (error as Error).message,
+        variant: 'destructive',
+      })
     } finally {
       setSaving(false)
     }
@@ -147,12 +263,24 @@ export function ModelConfigPage() {
     setEditingIndex(null)
   }
 
-  // 删除模型
-  const handleDelete = (index: number) => {
-    if (confirm('确定要删除这个模型吗？')) {
-      const newModels = models.filter((_, i) => i !== index)
+  // 打开删除确认对话框
+  const openDeleteDialog = (index: number) => {
+    setDeletingIndex(index)
+    setDeleteDialogOpen(true)
+  }
+
+  // 确认删除模型
+  const handleConfirmDelete = () => {
+    if (deletingIndex !== null) {
+      const newModels = models.filter((_, i) => i !== deletingIndex)
       setModels(newModels)
+      toast({
+        title: '删除成功',
+        description: '模型已从列表中移除',
+      })
     }
+    setDeleteDialogOpen(false)
+    setDeletingIndex(null)
   }
 
   // 更新任务配置
@@ -170,6 +298,17 @@ export function ModelConfigPage() {
       },
     })
   }
+
+  // 过滤模型列表
+  const filteredModels = models.filter((model) => {
+    if (!searchQuery) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      model.name.toLowerCase().includes(query) ||
+      model.model_identifier.toLowerCase().includes(query) ||
+      model.api_provider.toLowerCase().includes(query)
+    )
+  })
 
   if (loading) {
     return (
@@ -189,9 +328,9 @@ export function ModelConfigPage() {
           <h1 className="text-3xl font-bold">模型配置</h1>
           <p className="text-muted-foreground mt-2">管理模型和任务配置</p>
         </div>
-        <Button onClick={saveConfig} disabled={saving} size="sm">
+        <Button onClick={saveConfig} disabled={saving || autoSaving || !hasUnsavedChanges} size="sm">
           <Save className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
-          {saving ? '保存中...' : '保存配置'}
+          {saving ? '保存中...' : autoSaving ? '自动保存中...' : hasUnsavedChanges ? '保存配置' : '已保存'}
         </Button>
       </div>
 
@@ -214,6 +353,24 @@ export function ModelConfigPage() {
             </Button>
           </div>
 
+          {/* 搜索框 */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索模型名称、标识符或提供商..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            {searchQuery && (
+              <p className="text-sm text-muted-foreground">
+                找到 {filteredModels.length} 个结果
+              </p>
+            )}
+          </div>
+
           <div className="rounded-lg border bg-card">
             <Table>
               <TableHeader>
@@ -228,14 +385,14 @@ export function ModelConfigPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {models.length === 0 ? (
+                {filteredModels.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground">
-                      暂无模型配置
+                      {searchQuery ? '未找到匹配的模型' : '暂无模型配置'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  models.map((model, index) => (
+                  filteredModels.map((model, index) => (
                     <TableRow key={index}>
                       <TableCell className="font-medium">{model.name}</TableCell>
                       <TableCell className="max-w-xs truncate" title={model.model_identifier}>
@@ -259,7 +416,7 @@ export function ModelConfigPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(index)}
+                            onClick={() => openDeleteDialog(index)}
                           >
                             <Trash2 className="h-4 w-4" strokeWidth={2} fill="none" />
                           </Button>
@@ -525,6 +682,23 @@ export function ModelConfigPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 删除确认对话框 */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除模型 "{deletingIndex !== null ? models[deletingIndex]?.name : ''}" 吗？
+              此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -549,20 +723,8 @@ function TaskConfigCard({
   hideTemperature = false,
   hideMaxTokens = false,
 }: TaskConfigCardProps) {
-  const [selectedModels, setSelectedModels] = useState<string[]>(taskConfig.model_list || [])
-
-  const handleAddModel = (modelName: string) => {
-    if (!selectedModels.includes(modelName)) {
-      const newModels = [...selectedModels, modelName]
-      setSelectedModels(newModels)
-      onChange('model_list', newModels)
-    }
-  }
-
-  const handleRemoveModel = (modelName: string) => {
-    const newModels = selectedModels.filter((m) => m !== modelName)
-    setSelectedModels(newModels)
-    onChange('model_list', newModels)
+  const handleModelChange = (values: string[]) => {
+    onChange('model_list', values)
   }
 
   return (
@@ -576,36 +738,13 @@ function TaskConfigCard({
         {/* 模型列表 */}
         <div className="grid gap-2">
           <Label>模型列表</Label>
-          <div className="flex flex-wrap gap-2 min-h-[40px] p-2 border rounded-md">
-            {selectedModels.map((model) => (
-              <div
-                key={model}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-md text-sm"
-              >
-                {model}
-                <button
-                  onClick={() => handleRemoveModel(model)}
-                  className="hover:bg-primary/20 rounded-full p-0.5"
-                >
-                  <Trash2 className="h-3 w-3" strokeWidth={2} fill="none" />
-                </button>
-              </div>
-            ))}
-          </div>
-          <Select onValueChange={handleAddModel}>
-            <SelectTrigger>
-              <SelectValue placeholder="添加模型..." />
-            </SelectTrigger>
-            <SelectContent>
-              {modelNames
-                .filter((name) => !selectedModels.includes(name))
-                .map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
+          <MultiSelect
+            options={modelNames.map((name) => ({ label: name, value: name }))}
+            selected={taskConfig.model_list || []}
+            onChange={handleModelChange}
+            placeholder="选择模型..."
+            emptyText="暂无可用模型"
+          />
         </div>
 
         {/* 温度和最大 Token */}

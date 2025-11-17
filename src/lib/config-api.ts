@@ -130,7 +130,7 @@ export async function updateModelConfig(config: Record<string, unknown>): Promis
  */
 export async function updateBotConfigSection(
   sectionName: string,
-  sectionData: Record<string, unknown>
+  sectionData: unknown
 ): Promise<void> {
   const token = localStorage.getItem('access-token')
   
@@ -155,7 +155,7 @@ export async function updateBotConfigSection(
  */
 export async function updateModelConfigSection(
   sectionName: string,
-  sectionData: Record<string, unknown>
+  sectionData: unknown
 ): Promise<void> {
   const token = localStorage.getItem('access-token')
   

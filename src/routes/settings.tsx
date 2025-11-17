@@ -1,4 +1,4 @@
-import { Settings as SettingsIcon, Palette, Info, Bell, Shield, Eye, EyeOff, Copy, RefreshCw, Check, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { Settings as  Palette, Info, Bell, Shield, Eye, EyeOff, Copy, RefreshCw, Check, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { useTheme } from '@/components/use-theme'
 import { useAnimation } from '@/hooks/use-animation'
 import { useState, useMemo } from 'react'

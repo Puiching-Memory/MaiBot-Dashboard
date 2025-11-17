@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,14 +19,25 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Pencil, Trash2, Save } from 'lucide-react'
-import { getModelConfig, updateModelConfig } from '@/lib/config-api'
+import { Plus, Pencil, Trash2, Save, Eye, EyeOff, Copy, Search } from 'lucide-react'
+import { getModelConfig, updateModelConfig, updateModelConfigSection } from '@/lib/config-api'
+import { useToast } from '@/hooks/use-toast'
 
 interface APIProvider {
   name: string
@@ -42,9 +53,20 @@ export function ModelProviderConfigPage() {
   const [providers, setProviders] = useState<APIProvider[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [autoSaving, setAutoSaving] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingProvider, setEditingProvider] = useState<APIProvider | null>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletingIndex, setDeletingIndex] = useState<number | null>(null)
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const { toast } = useToast()
+  
+  // 用于防抖的定时器
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const initialLoadRef = useRef(true)
 
   // 加载配置
   useEffect(() => {
@@ -56,6 +78,8 @@ export function ModelProviderConfigPage() {
       setLoading(true)
       const config = await getModelConfig()
       setProviders((config.api_providers as APIProvider[]) || [])
+      setHasUnsavedChanges(false)
+      initialLoadRef.current = false
     } catch (error) {
       console.error('加载配置失败:', error)
     } finally {
@@ -63,17 +87,72 @@ export function ModelProviderConfigPage() {
     }
   }
 
-  // 保存配置
+  // 自动保存函数（使用增量 API）
+  const autoSaveProviders = useCallback(async (newProviders: APIProvider[]) => {
+    if (initialLoadRef.current) return // 初始加载时不自动保存
+    
+    try {
+      setAutoSaving(true)
+      await updateModelConfigSection('api_providers', newProviders)
+      setHasUnsavedChanges(false)
+    } catch (error) {
+      console.error('自动保存失败:', error)
+      // 自动保存失败时不显示错误提示，避免打扰用户
+      setHasUnsavedChanges(true)
+    } finally {
+      setAutoSaving(false)
+    }
+  }, [])
+
+  // 监听 providers 变化，触发自动保存（带防抖）
+  useEffect(() => {
+    if (initialLoadRef.current) return
+
+    setHasUnsavedChanges(true)
+
+    // 清除之前的定时器
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
+    }
+
+    // 设置新的定时器（2秒后自动保存）
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSaveProviders(providers)
+    }, 2000)
+
+    // 清理函数
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [providers, autoSaveProviders])
+
+  // 保存配置（手动保存，保存完整配置）
   const saveConfig = async () => {
     try {
       setSaving(true)
+      
+      // 先取消自动保存定时器
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+
       const config = await getModelConfig()
       config.api_providers = providers
       await updateModelConfig(config)
-      alert('配置已保存')
+      setHasUnsavedChanges(false)
+      toast({
+        title: '保存成功',
+        description: '模型提供商配置已保存',
+      })
     } catch (error) {
       console.error('保存配置失败:', error)
-      alert('保存失败: ' + (error as Error).message)
+      toast({
+        title: '保存失败',
+        description: (error as Error).message,
+        variant: 'destructive',
+      })
     } finally {
       setSaving(false)
     }
@@ -93,7 +172,26 @@ export function ModelProviderConfigPage() {
       }
     )
     setEditingIndex(index)
+    setShowApiKey(false)
     setEditDialogOpen(true)
+  }
+
+  // 复制 API Key
+  const copyApiKey = async () => {
+    if (!editingProvider?.api_key) return
+    try {
+      await navigator.clipboard.writeText(editingProvider.api_key)
+      toast({
+        title: '复制成功',
+        description: 'API Key 已复制到剪贴板',
+      })
+    } catch {
+      toast({
+        title: '复制失败',
+        description: '无法访问剪贴板',
+        variant: 'destructive',
+      })
+    }
   }
 
   // 保存编辑
@@ -115,13 +213,36 @@ export function ModelProviderConfigPage() {
     setEditingIndex(null)
   }
 
-  // 删除提供商
-  const handleDelete = (index: number) => {
-    if (confirm('确定要删除这个提供商吗？')) {
-      const newProviders = providers.filter((_, i) => i !== index)
-      setProviders(newProviders)
-    }
+  // 打开删除确认对话框
+  const openDeleteDialog = (index: number) => {
+    setDeletingIndex(index)
+    setDeleteDialogOpen(true)
   }
+
+  // 确认删除提供商
+  const handleConfirmDelete = () => {
+    if (deletingIndex !== null) {
+      const newProviders = providers.filter((_, i) => i !== deletingIndex)
+      setProviders(newProviders)
+      toast({
+        title: '删除成功',
+        description: '提供商已从列表中移除',
+      })
+    }
+    setDeleteDialogOpen(false)
+    setDeletingIndex(null)
+  }
+
+  // 过滤提供商列表
+  const filteredProviders = providers.filter((provider) => {
+    if (!searchQuery) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      provider.name.toLowerCase().includes(query) ||
+      provider.base_url.toLowerCase().includes(query) ||
+      provider.client_type.toLowerCase().includes(query)
+    )
+  })
 
   if (loading) {
     return (
@@ -146,11 +267,34 @@ export function ModelProviderConfigPage() {
             <Plus className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
             添加提供商
           </Button>
-          <Button onClick={saveConfig} disabled={saving} size="sm" variant="default">
+          <Button 
+            onClick={saveConfig} 
+            disabled={saving || autoSaving || !hasUnsavedChanges} 
+            size="sm" 
+            variant="default"
+          >
             <Save className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
-            {saving ? '保存中...' : '保存配置'}
+            {saving ? '保存中...' : autoSaving ? '自动保存中...' : hasUnsavedChanges ? '保存配置' : '已保存'}
           </Button>
         </div>
+      </div>
+
+      {/* 搜索框 */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="搜索提供商名称、URL 或类型..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        {searchQuery && (
+          <p className="text-sm text-muted-foreground">
+            找到 {filteredProviders.length} 个结果
+          </p>
+        )}
       </div>
 
       {/* 提供商列表表格 */}
@@ -168,14 +312,14 @@ export function ModelProviderConfigPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {providers.length === 0 ? (
+            {filteredProviders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  暂无提供商配置，点击"添加提供商"开始配置
+                  {searchQuery ? '未找到匹配的提供商' : '暂无提供商配置，点击"添加提供商"开始配置'}
                 </TableCell>
               </TableRow>
             ) : (
-              providers.map((provider, index) => (
+              filteredProviders.map((provider, index) => (
                 <TableRow key={index}>
                   <TableCell className="font-medium">{provider.name}</TableCell>
                   <TableCell className="max-w-xs truncate" title={provider.base_url}>
@@ -197,7 +341,7 @@ export function ModelProviderConfigPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(index)}
+                        onClick={() => openDeleteDialog(index)}
                       >
                         <Trash2 className="h-4 w-4" strokeWidth={2} fill="none" />
                       </Button>
@@ -253,17 +397,42 @@ export function ModelProviderConfigPage() {
 
             <div className="grid gap-2">
               <Label htmlFor="api_key">API Key *</Label>
-              <Input
-                id="api_key"
-                type="password"
-                value={editingProvider?.api_key || ''}
-                onChange={(e) =>
-                  setEditingProvider((prev) =>
-                    prev ? { ...prev, api_key: e.target.value } : null
-                  )
-                }
-                placeholder="sk-..."
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="api_key"
+                  type={showApiKey ? 'text' : 'password'}
+                  value={editingProvider?.api_key || ''}
+                  onChange={(e) =>
+                    setEditingProvider((prev) =>
+                      prev ? { ...prev, api_key: e.target.value } : null
+                    )
+                  }
+                  placeholder="sk-..."
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  title={showApiKey ? '隐藏密钥' : '显示密钥'}
+                >
+                  {showApiKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={copyApiKey}
+                  title="复制密钥"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="grid gap-2">
@@ -282,7 +451,6 @@ export function ModelProviderConfigPage() {
                 <SelectContent>
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="gemini">Gemini</SelectItem>
-                  <SelectItem value="anthropic">Anthropic</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -345,6 +513,23 @@ export function ModelProviderConfigPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 删除确认对话框 */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除提供商 "{deletingIndex !== null ? providers[deletingIndex]?.name : ''}" 吗？
+              此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
