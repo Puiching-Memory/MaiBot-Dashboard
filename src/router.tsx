@@ -13,6 +13,7 @@ import { PersonManagementPage } from './routes/person'
 import { LogViewerPage } from './routes/logs'
 import { StatisticsPage } from './routes/statistics'
 import { PluginsPage } from './routes/plugins'
+import { PluginMirrorsPage } from './routes/plugin-mirrors'
 import { Layout } from './components/layout'
 import { checkAuth } from './hooks/use-auth'
 
@@ -120,6 +121,13 @@ const pluginsRoute = createRoute({
   component: PluginsPage,
 })
 
+// 插件镜像源配置路由
+const pluginMirrorsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/plugin-mirrors',
+  component: PluginMirrorsPage,
+})
+
 // 设置页路由
 const settingsRoute = createRoute({
   getParentRoute: () => protectedRoute,
@@ -147,6 +155,7 @@ const routeTree = rootRoute.addChildren([
     personManagementRoute,
     statisticsRoute,
     pluginsRoute,
+    pluginMirrorsRoute,
     logsRoute,
     settingsRoute,
   ]),

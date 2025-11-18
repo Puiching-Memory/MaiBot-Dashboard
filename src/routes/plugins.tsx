@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -19,203 +21,964 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, Download, Star, ExternalLink } from 'lucide-react'
-
-interface Plugin {
-  id: string
-  name: string
-  description: string
-  author: string
-  version: string
-  downloads: number
-  rating: number
-  category: string
-  tags: string[]
-  detailedDescription: string
-  homepage?: string
-  repository?: string
-}
+import { Checkbox } from '@/components/ui/checkbox'
+import { Search, Download, Star, ExternalLink, CheckCircle2, AlertCircle, Loader2, AlertTriangle, RefreshCw, Trash2, Settings2 } from 'lucide-react'
+import type { PluginInfo } from '@/types/plugin'
+import { 
+  fetchPluginList, 
+  checkGitStatus, 
+  connectPluginProgressWebSocket, 
+  installPlugin, 
+  uninstallPlugin,
+  updatePlugin,
+  getMaimaiVersion, 
+  isPluginCompatible, 
+  getInstalledPlugins,
+  checkPluginInstalled,
+  getInstalledPluginVersion,
+  type GitStatus, 
+  type PluginLoadProgress, 
+  type MaimaiVersion,
+  type InstalledPlugin
+} from '@/lib/plugin-api'
+import { useToast } from '@/hooks/use-toast'
+import { Progress } from '@/components/ui/progress'
 
 export function PluginsPage() {
-  const [selectedPlugin, setSelectedPlugin] = useState<Plugin | null>(null)
+  const navigate = useNavigate()
+  const [selectedPlugin, setSelectedPlugin] = useState<PluginInfo | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [activeTab, setActiveTab] = useState('all')  // all | installed | updates
+  const [showCompatibleOnly, setShowCompatibleOnly] = useState(false)  // 只显示兼容的
+  const [plugins, setPlugins] = useState<PluginInfo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null)
+  const [loadProgress, setLoadProgress] = useState<PluginLoadProgress | null>(null)
+  const [maimaiVersion, setMaimaiVersion] = useState<MaimaiVersion | null>(null)
+  const [, setInstalledPlugins] = useState<InstalledPlugin[]>([])
+  const { toast } = useToast()
+
+  // 统一管理 WebSocket 和数据加载
+  useEffect(() => {
+    let ws: WebSocket | null = null
+    let isUnmounted = false
+
+    const init = async () => {
+      // 1. 先连接 WebSocket
+      ws = connectPluginProgressWebSocket(
+        (progress) => {
+          if (isUnmounted) return
+          
+          setLoadProgress(progress)
+          
+          // 如果加载完成，清除进度
+          if (progress.stage === 'success') {
+            setTimeout(() => {
+              if (!isUnmounted) {
+                setLoadProgress(null)
+              }
+            }, 2000)
+          } else if (progress.stage === 'error') {
+            setLoading(false)
+            setError(progress.error || '加载失败')
+          }
+        },
+        (error) => {
+          console.error('WebSocket error:', error)
+          if (!isUnmounted) {
+            toast({
+              title: 'WebSocket 连接失败',
+              description: '无法实时显示加载进度',
+              variant: 'destructive',
+            })
+          }
+        }
+      )
+
+      // 2. 等待 WebSocket 连接建立
+      await new Promise<void>((resolve) => {
+        if (!ws) {
+          resolve()
+          return
+        }
+        
+        const checkConnection = () => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            console.log('WebSocket connected, starting to load plugins')
+            resolve()
+          } else if (ws && ws.readyState === WebSocket.CLOSED) {
+            console.warn('WebSocket closed before loading plugins')
+            resolve()
+          } else {
+            setTimeout(checkConnection, 100)
+          }
+        }
+        
+        checkConnection()
+      })
+
+      // 3. 检查 Git 状态
+      if (!isUnmounted) {
+        const status = await checkGitStatus()
+        setGitStatus(status)
+        
+        if (!status.installed) {
+          toast({
+            title: 'Git 未安装',
+            description: status.error || '请先安装 Git 才能使用插件安装功能',
+            variant: 'destructive',
+          })
+        }
+      }
+
+      // 4. 获取麦麦版本
+      if (!isUnmounted) {
+        const version = await getMaimaiVersion()
+        setMaimaiVersion(version)
+      }
+
+      // 5. 加载插件列表（包含已安装信息）
+      if (!isUnmounted) {
+        try {
+          setLoading(true)
+          setError(null)
+          const data = await fetchPluginList()
+          
+          if (!isUnmounted) {
+            // 获取已安装插件列表
+            const installed = await getInstalledPlugins()
+            setInstalledPlugins(installed)
+            
+            // 将已安装信息合并到插件数据中
+            const mergedData = data.map(plugin => {
+              const isInstalled = checkPluginInstalled(plugin.id, installed)
+              const installedVersion = getInstalledPluginVersion(plugin.id, installed)
+              
+              return {
+                ...plugin,
+                installed: isInstalled,
+                installed_version: installedVersion
+              }
+            })
+          
+            
+            // 添加本地安装但不在市场的插件
+            for (const installedPlugin of installed) {
+              const existsInMarket = mergedData.some(p => p.id === installedPlugin.id)
+              if (!existsInMarket && installedPlugin.manifest) {
+                // 添加本地插件到列表
+                mergedData.push({
+                  id: installedPlugin.id,
+                  manifest: {
+                    manifest_version: installedPlugin.manifest.manifest_version || 1,
+                    name: installedPlugin.manifest.name,
+                    version: installedPlugin.manifest.version,
+                    description: installedPlugin.manifest.description || '',
+                    author: installedPlugin.manifest.author,
+                    license: installedPlugin.manifest.license || 'Unknown',
+                    host_application: installedPlugin.manifest.host_application,
+                    homepage_url: installedPlugin.manifest.homepage_url,
+                    repository_url: installedPlugin.manifest.repository_url,
+                    keywords: installedPlugin.manifest.keywords || [],
+                    categories: installedPlugin.manifest.categories || [],
+                    default_locale: (installedPlugin.manifest.default_locale as string) || 'zh-CN',
+                    locales_path: installedPlugin.manifest.locales_path as string | undefined,
+                  },
+                  downloads: 0,
+                  rating: 0,
+                  review_count: 0,
+                  installed: true,
+                  installed_version: installedPlugin.manifest.version,
+                  published_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })
+              }
+            }
+            
+            setPlugins(mergedData)
+          }
+        } catch (err) {
+          if (!isUnmounted) {
+            const errorMessage = err instanceof Error ? err.message : '加载插件列表失败'
+            setError(errorMessage)
+            toast({
+              title: '加载失败',
+              description: errorMessage,
+              variant: 'destructive',
+            })
+          }
+        } finally {
+          if (!isUnmounted) {
+            setLoading(false)
+          }
+        }
+      }
+    }
+
+    init()
+
+    return () => {
+      isUnmounted = true
+      if (ws) {
+        ws.close()
+      }
+    }
+  }, [toast])
+
+  // 获取插件状态徽章
+  const getStatusBadge = (plugin: PluginInfo) => {
+    // 优先显示兼容性状态
+    if (!plugin.installed && maimaiVersion && !checkPluginCompatibility(plugin)) {
+      return (
+        <Badge variant="destructive" className="gap-1">
+          <AlertCircle className="h-3 w-3" />
+          不兼容
+        </Badge>
+      )
+    }
+    
+    if (plugin.installed) {
+      // 版本比较：去除两边空格并进行比较
+      const installedVer = plugin.installed_version?.trim()
+      const marketVer = plugin.manifest.version?.trim()
+      
+      if (installedVer !== marketVer) {
+        // console.log(`[Plugin ${plugin.id}] 版本不一致:`, {
+        //   installed: installedVer,
+        //   market: marketVer,
+        //   installedType: typeof plugin.installed_version,
+        //   marketType: typeof plugin.manifest.version
+        // })
+        
+        // 简单的版本比较：只有当市场版本比已安装版本新时才显示"可更新"
+        // 如果本地版本更新（比如手动更新或市场数据过期），则显示"已安装"
+        const installedParts = installedVer?.split('.').map(Number) || [0, 0, 0]
+        const marketParts = marketVer?.split('.').map(Number) || [0, 0, 0]
+        
+        // 比较主版本号、次版本号、修订号
+        for (let i = 0; i < 3; i++) {
+          if ((marketParts[i] || 0) > (installedParts[i] || 0)) {
+            // 市场版本更新
+            return (
+              <Badge variant="outline" className="gap-1 text-orange-600 border-orange-600">
+                <AlertCircle className="h-3 w-3" />
+                可更新
+              </Badge>
+            )
+          } else if ((marketParts[i] || 0) < (installedParts[i] || 0)) {
+            // 本地版本更新
+            break
+          }
+        }
+      }
+      
+      return (
+        <Badge variant="default" className="gap-1">
+          <CheckCircle2 className="h-3 w-3" />
+          已安装
+        </Badge>
+      )
+    }
+    return null
+  }
+
+  // 检查插件兼容性
+  const checkPluginCompatibility = (plugin: PluginInfo): boolean => {
+    if (!maimaiVersion || !plugin.manifest?.host_application) return true
+    
+    return isPluginCompatible(
+      plugin.manifest.host_application.min_version,
+      plugin.manifest.host_application.max_version,
+      maimaiVersion
+    )
+  }
+
+  // 检查是否需要更新（市场版本比已安装版本新）
+  const needsUpdate = (plugin: PluginInfo): boolean => {
+    if (!plugin.installed || !plugin.installed_version || !plugin.manifest?.version) {
+      return false
+    }
+    
+    const installedVer = plugin.installed_version.trim()
+    const marketVer = plugin.manifest.version.trim()
+    
+    if (installedVer === marketVer) return false
+    
+    const installedParts = installedVer.split('.').map(Number)
+    const marketParts = marketVer.split('.').map(Number)
+    
+    // 比较主版本号、次版本号、修订号
+    for (let i = 0; i < 3; i++) {
+      if ((marketParts[i] || 0) > (installedParts[i] || 0)) {
+        return true  // 市场版本更新
+      } else if ((marketParts[i] || 0) < (installedParts[i] || 0)) {
+        return false  // 本地版本更新
+      }
+    }
+    
+    return false
+  }
+
+  // 过滤插件
+  const filteredPlugins = plugins.filter(plugin => {
+    // 跳过没有 manifest 的插件
+    if (!plugin.manifest) {
+      console.warn('[过滤] 跳过无 manifest 的插件:', plugin.id)
+      return false
+    }
+    
+    // 搜索过滤
+    const matchesSearch = searchQuery === '' ||
+      plugin.manifest.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      plugin.manifest.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (plugin.manifest.keywords && plugin.manifest.keywords.some(k => k.toLowerCase().includes(searchQuery.toLowerCase())))
+    
+    // 分类过滤
+    const matchesCategory = categoryFilter === 'all' ||
+      (plugin.manifest.categories && plugin.manifest.categories.includes(categoryFilter))
+    
+    // 标签页过滤
+    let matchesTab = true
+    if (activeTab === 'installed') {
+      matchesTab = plugin.installed === true
+    } else if (activeTab === 'updates') {
+      matchesTab = plugin.installed === true && needsUpdate(plugin)
+    }
+    
+    // 兼容性过滤
+    const matchesCompatibility = !showCompatibleOnly || 
+      !maimaiVersion || 
+      checkPluginCompatibility(plugin)
+    
+    return matchesSearch && matchesCategory && matchesTab && matchesCompatibility
+  })
 
   // 关闭对话框
   const closeDialog = () => {
     setSelectedPlugin(null)
   }
 
+  // 安装插件处理
+  const handleInstall = async (plugin: PluginInfo) => {
+    if (!gitStatus?.installed) {
+      toast({
+        title: '无法安装',
+        description: 'Git 未安装',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 检查插件兼容性
+    if (maimaiVersion && !checkPluginCompatibility(plugin)) {
+      toast({
+        title: '无法安装',
+        description: '插件与当前麦麦版本不兼容',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      await installPlugin(
+        plugin.id,
+        plugin.manifest.repository_url || '',
+        'main'
+      )
+      
+      toast({
+        title: '安装成功',
+        description: `${plugin.manifest.name} 已成功安装`,
+      })
+      
+      // 重新加载已安装插件列表
+      const installed = await getInstalledPlugins()
+      setInstalledPlugins(installed)
+      
+      // 重新合并已安装信息到插件列表
+      setPlugins(prevPlugins => 
+        prevPlugins.map(p => {
+          if (p.id === plugin.id) {
+            const isInstalled = checkPluginInstalled(p.id, installed)
+            const installedVersion = getInstalledPluginVersion(p.id, installed)
+            
+            return {
+              ...p,
+              installed: isInstalled,
+              installed_version: installedVersion
+            }
+          }
+          return p
+        })
+      )
+    } catch (error) {
+      toast({
+        title: '安装失败',
+        description: error instanceof Error ? error.message : '未知错误',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // 卸载插件处理
+  const handleUninstall = async (plugin: PluginInfo) => {
+    try {
+      await uninstallPlugin(plugin.id)
+      
+      toast({
+        title: '卸载成功',
+        description: `${plugin.manifest.name} 已成功卸载`,
+      })
+      
+      // 重新加载已安装插件列表
+      const installed = await getInstalledPlugins()
+      setInstalledPlugins(installed)
+      
+      // 重新合并已安装信息到插件列表
+      setPlugins(prevPlugins => 
+        prevPlugins.map(p => {
+          if (p.id === plugin.id) {
+            const isInstalled = checkPluginInstalled(p.id, installed)
+            const installedVersion = getInstalledPluginVersion(p.id, installed)
+            
+            return {
+              ...p,
+              installed: isInstalled,
+              installed_version: installedVersion
+            }
+          }
+          return p
+        })
+      )
+    } catch (error) {
+      toast({
+        title: '卸载失败',
+        description: error instanceof Error ? error.message : '未知错误',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // 更新插件处理
+  const handleUpdate = async (plugin: PluginInfo) => {
+    if (!gitStatus?.installed) {
+      toast({
+        title: '无法更新',
+        description: 'Git 未安装',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      const result = await updatePlugin(
+        plugin.id,
+        plugin.manifest.repository_url || '',
+        'main'
+      )
+      
+      toast({
+        title: '更新成功',
+        description: `${plugin.manifest.name} 已从 ${result.old_version} 更新到 ${result.new_version}`,
+      })
+      
+      // 重新加载已安装插件列表
+      const installed = await getInstalledPlugins()
+      setInstalledPlugins(installed)
+      
+      // 重新合并已安装信息到插件列表
+      setPlugins(prevPlugins => 
+        prevPlugins.map(p => {
+          if (p.id === plugin.id) {
+            const isInstalled = checkPluginInstalled(p.id, installed)
+            const installedVersion = getInstalledPluginVersion(p.id, installed)
+            
+            return {
+              ...p,
+              installed: isInstalled,
+              installed_version: installedVersion
+            }
+          }
+          return p
+        })
+      )
+    } catch (error) {
+      toast({
+        title: '更新失败',
+        description: error instanceof Error ? error.message : '未知错误',
+        variant: 'destructive',
+      })
+    }
+  }
+
   return (
     <ScrollArea className="h-full">
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-4 sm:p-6">
         {/* 标题 */}
-        <div>
-          <h1 className="text-3xl font-bold">插件市场</h1>
-          <p className="text-muted-foreground mt-2">浏览和管理麦麦的插件</p>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">插件市场</h1>
+            <p className="text-muted-foreground mt-2">浏览和管理麦麦的插件</p>
+          </div>
+          <Button onClick={() => navigate({ to: '/plugin-mirrors' })}>
+            <Settings2 className="h-4 w-4 mr-2" />
+            配置镜像源
+          </Button>
         </div>
+
+        {/* Git 状态警告 */}
+        {gitStatus && !gitStatus.installed && (
+          <Card className="border-orange-600 bg-orange-50 dark:bg-orange-950/20">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-orange-600" />
+                <div>
+                  <CardTitle className="text-lg text-orange-900 dark:text-orange-100">
+                    Git 未安装
+                  </CardTitle>
+                  <CardDescription className="text-orange-800 dark:text-orange-200">
+                    {gitStatus.error || '请先安装 Git 才能使用插件安装功能'}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-orange-800 dark:text-orange-200">
+                您可以从 <a href="https://git-scm.com/downloads" target="_blank" rel="noopener noreferrer" className="underline font-medium">git-scm.com</a> 下载并安装 Git。
+                安装完成后，请重启麦麦应用。
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 搜索和筛选栏 */}
         <Card className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* 搜索框 */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="搜索插件..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* 搜索框 */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="搜索插件..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
 
-            {/* 分类筛选 */}
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="选择分类" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部分类</SelectItem>
-                <SelectItem value="utility">工具</SelectItem>
-                <SelectItem value="entertainment">娱乐</SelectItem>
-                <SelectItem value="integration">集成</SelectItem>
-                <SelectItem value="ai">AI 增强</SelectItem>
-              </SelectContent>
-            </Select>
+              {/* 分类筛选 */}
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="选择分类" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部分类</SelectItem>
+                  <SelectItem value="Developer Tools">开发工具</SelectItem>
+                  <SelectItem value="AI Enhancement">AI 增强</SelectItem>
+                  <SelectItem value="Utility">工具类</SelectItem>
+                  <SelectItem value="Entertainment">娱乐</SelectItem>
+                  <SelectItem value="Integration">集成</SelectItem>
+                  <SelectItem value="Data Analysis">数据分析</SelectItem>
+                  <SelectItem value="Automation">自动化</SelectItem>
+                  <SelectItem value="Other">其他</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* 兼容性筛选 */}
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="compatible-only" 
+                checked={showCompatibleOnly}
+                onCheckedChange={(checked) => setShowCompatibleOnly(checked === true)}
+              />
+              <label
+                htmlFor="compatible-only"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                只显示兼容当前版本的插件
+              </label>
+            </div>
           </div>
         </Card>
 
+        {/* 标签页 */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="all">
+              全部插件 ({plugins.length})
+            </TabsTrigger>
+            <TabsTrigger value="installed">
+              已安装 ({plugins.filter(p => p.installed).length})
+            </TabsTrigger>
+            <TabsTrigger value="updates">
+              可更新 ({plugins.filter(p => p.installed && needsUpdate(p)).length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* 进度条 - 统一显示所有操作的进度 */}
+        {loadProgress && loadProgress.stage === 'loading' && (
+          <Card className="p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm font-medium">
+                    {loadProgress.operation === 'fetch' && '加载插件列表'}
+                    {loadProgress.operation === 'install' && `安装插件${loadProgress.plugin_id ? `: ${loadProgress.plugin_id}` : ''}`}
+                    {loadProgress.operation === 'uninstall' && `卸载插件${loadProgress.plugin_id ? `: ${loadProgress.plugin_id}` : ''}`}
+                    {loadProgress.operation === 'update' && `更新插件${loadProgress.plugin_id ? `: ${loadProgress.plugin_id}` : ''}`}
+                  </span>
+                </div>
+                <span className="text-sm font-medium">{loadProgress.progress}%</span>
+              </div>
+              <Progress value={loadProgress.progress} className="h-2" />
+              <div className="text-xs text-muted-foreground">
+                {loadProgress.message}
+              </div>
+              {loadProgress.operation === 'fetch' && loadProgress.total_plugins > 0 && (
+                <div className="text-xs text-muted-foreground text-center">
+                  已加载 {loadProgress.loaded_plugins} / {loadProgress.total_plugins} 个插件
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* 加载错误显示 */}
+        {loadProgress && loadProgress.stage === 'error' && loadProgress.error && (
+          <Card className="border-destructive bg-destructive/10">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <div>
+                  <CardTitle className="text-lg text-destructive">
+                    加载失败
+                  </CardTitle>
+                  <CardDescription className="text-destructive/80">
+                    {loadProgress.error}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        )}
+
         {/* 插件卡片网格 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* 插件卡片占位 */}
-          {[1, 2, 3, 4, 5, 6].map((index) => (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="ml-3 text-muted-foreground">加载插件列表中...</span>
+          </div>
+        ) : error ? (
+          <Card className="p-6">
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+              <h3 className="text-lg font-semibold mb-2">加载失败</h3>
+              <p className="text-sm text-muted-foreground mb-4">{error}</p>
+              <Button onClick={() => window.location.reload()}>
+                重新加载
+              </Button>
+            </div>
+          </Card>
+        ) : filteredPlugins.length === 0 ? (
+          <Card className="p-6">
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Search className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">未找到插件</h3>
+              <p className="text-sm text-muted-foreground">
+                {searchQuery || categoryFilter !== 'all' 
+                  ? '尝试调整搜索条件或筛选器'
+                  : '暂无可用插件'}
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredPlugins.map((plugin) => (
             <Card
-              key={index}
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => {
-                // 点击时设置选中的插件（这里使用占位数据）
-                setSelectedPlugin({
-                  id: `plugin-${index}`,
-                  name: '',
-                  description: '',
-                  author: '',
-                  version: '',
-                  downloads: 0,
-                  rating: 0,
-                  category: '',
-                  tags: [],
-                  detailedDescription: '',
-                })
-              }}
+              key={plugin.id}
+              className="flex flex-col hover:shadow-lg transition-shadow h-full"
             >
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-xl">插件名称</CardTitle>
-                  <Badge variant="secondary">分类</Badge>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-xl">{plugin.manifest?.name || plugin.id}</CardTitle>
+                  <div className="flex flex-col gap-1">
+                    {plugin.manifest?.categories && plugin.manifest.categories[0] && (
+                      <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                        {plugin.manifest.categories[0]}
+                      </Badge>
+                    )}
+                    {getStatusBadge(plugin)}
+                  </div>
                 </div>
-                <CardDescription>插件简短描述</CardDescription>
+                <CardDescription className="line-clamp-2">{plugin.manifest?.description || '无描述'}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
+              <CardContent className="flex-1">
+                <div className="space-y-3">
+                  {/* 统计信息 */}
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Download className="h-4 w-4" />
-                      <span>0</span>
+                      <span>{plugin.downloads.toLocaleString()}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4" />
-                      <span>0.0</span>
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span>{plugin.rating.toFixed(1)}</span>
                     </div>
                   </div>
+                  {/* 标签 */}
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">标签1</Badge>
-                    <Badge variant="outline">标签2</Badge>
+                    {plugin.manifest?.keywords && plugin.manifest.keywords.slice(0, 3).map((keyword) => (
+                      <Badge key={keyword} variant="outline" className="text-xs">
+                        {keyword}
+                      </Badge>
+                    ))}
+                    {plugin.manifest?.keywords && plugin.manifest.keywords.length > 3 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{plugin.manifest.keywords.length - 3}
+                      </Badge>
+                    )}
+                  </div>
+                  {/* 版本和作者 */}
+                  <div className="text-xs text-muted-foreground pt-2 border-t space-y-1">
+                    <div>v{plugin.manifest?.version || 'unknown'} · {plugin.manifest?.author?.name || 'Unknown'}</div>
+                    {/* 支持版本 */}
+                    {plugin.manifest?.host_application && (
+                      <div className="flex items-center gap-1">
+                        <span>支持:</span>
+                        <span className="font-medium">
+                          {plugin.manifest.host_application.min_version}
+                          {plugin.manifest.host_application.max_version 
+                            ? ` - ${plugin.manifest.host_application.max_version}`
+                            : ' - 最新版本'
+                          }
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
-              <CardFooter>
-                <Button variant="outline" className="w-full" size="sm">
-                  查看详情
-                </Button>
+              <CardFooter className="pt-4">
+                <div className="flex items-center justify-end gap-2 w-full">
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedPlugin(plugin)}
+                  >
+                    查看详情
+                  </Button>
+                  {plugin.installed ? (
+                    needsUpdate(plugin) ? (
+                      <Button 
+                        size="sm"
+                        disabled={!gitStatus?.installed}
+                        title={!gitStatus?.installed ? 'Git 未安装' : undefined}
+                        onClick={() => handleUpdate(plugin)}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        更新
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        disabled={!gitStatus?.installed}
+                        title={!gitStatus?.installed ? 'Git 未安装' : undefined}
+                        onClick={() => handleUninstall(plugin)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        卸载
+                      </Button>
+                    )
+                  ) : (
+                    <Button 
+                      size="sm"
+                      disabled={
+                        !gitStatus?.installed || 
+                        loadProgress?.operation === 'install' ||
+                        (maimaiVersion !== null && !checkPluginCompatibility(plugin))
+                      }
+                      title={
+                        !gitStatus?.installed 
+                          ? 'Git 未安装' 
+                          : (maimaiVersion !== null && !checkPluginCompatibility(plugin))
+                            ? `不兼容当前版本 (需要 ${plugin.manifest?.host_application?.min_version || '未知'}${plugin.manifest?.host_application?.max_version ? ` - ${plugin.manifest.host_application.max_version}` : '+'}，当前 ${maimaiVersion?.version})`
+                            : undefined
+                      }
+                      onClick={() => handleInstall(plugin)}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      {loadProgress?.operation === 'install' && loadProgress?.plugin_id === plugin.id ? '安装中...' : '安装'}
+                    </Button>
+                  )}
+                </div>
               </CardFooter>
             </Card>
           ))}
-        </div>
+          </div>
+        )}
 
         {/* 插件详情对话框 */}
         <Dialog open={selectedPlugin !== null} onOpenChange={closeDialog}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <DialogTitle className="text-2xl">插件名称</DialogTitle>
-                  <DialogDescription>作者: 插件作者</DialogDescription>
-                </div>
-                <Badge variant="secondary">分类</Badge>
-              </div>
-            </DialogHeader>
-
-            <div className="space-y-6">
-              {/* 基本信息 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium">版本</p>
-                  <p className="text-sm text-muted-foreground">v0.0.0</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">下载量</p>
-                  <p className="text-sm text-muted-foreground">0</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">评分</p>
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-sm text-muted-foreground">0.0</span>
+          {selectedPlugin && selectedPlugin.manifest && (
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2 flex-1">
+                    <DialogTitle className="text-2xl">{selectedPlugin.manifest.name}</DialogTitle>
+                    <DialogDescription>
+                      作者: {selectedPlugin.manifest.author?.name || 'Unknown'}
+                      {selectedPlugin.manifest.author?.url && (
+                        <a
+                          href={selectedPlugin.manifest.author.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-2 text-primary hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3 inline" />
+                        </a>
+                      )}
+                    </DialogDescription>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {selectedPlugin.manifest.categories && selectedPlugin.manifest.categories[0] && (
+                      <Badge variant="secondary">{selectedPlugin.manifest.categories[0]}</Badge>
+                    )}
+                    {getStatusBadge(selectedPlugin)}
                   </div>
                 </div>
-              </div>
+              </DialogHeader>
 
-              {/* 标签 */}
-              <div>
-                <p className="text-sm font-medium mb-2">标签</p>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">标签1</Badge>
-                  <Badge variant="outline">标签2</Badge>
-                  <Badge variant="outline">标签3</Badge>
+              <div className="space-y-6">
+                {/* 基本信息 */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm font-medium">版本</p>
+                    <p className="text-sm text-muted-foreground">v{selectedPlugin.manifest?.version || 'unknown'}</p>
+                    {selectedPlugin.installed && selectedPlugin.installed_version && (
+                      <p className="text-xs text-muted-foreground">
+                        已安装: v{selectedPlugin.installed_version}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">下载量</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedPlugin.downloads.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">评分</p>
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-sm text-muted-foreground">
+                        {selectedPlugin.rating.toFixed(1)} ({selectedPlugin.review_count})
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">许可证</p>
+                    <p className="text-sm text-muted-foreground">{selectedPlugin.manifest.license || 'Unknown'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-sm font-medium">支持版本</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedPlugin.manifest.host_application?.min_version || '未知'}
+                      {selectedPlugin.manifest.host_application?.max_version 
+                        ? ` - ${selectedPlugin.manifest.host_application.max_version}`
+                        : ' - 最新版本'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 标签 */}
+                <div>
+                  <p className="text-sm font-medium mb-2">关键词</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPlugin.manifest.keywords && selectedPlugin.manifest.keywords.map((keyword) => (
+                      <Badge key={keyword} variant="outline">
+                        {keyword}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 详细描述 */}
+                {selectedPlugin.detailed_description && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">详细说明</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                      {selectedPlugin.detailed_description}
+                    </p>
+                  </div>
+                )}
+
+                {/* 描述（如果没有详细描述） */}
+                {!selectedPlugin.detailed_description && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">说明</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedPlugin.manifest.description || '无描述'}
+                    </p>
+                  </div>
+                )}
+
+                {/* 链接 */}
+                <div className="space-y-2">
+                  {selectedPlugin.manifest.homepage_url && (
+                    <div className="text-sm">
+                      <span className="font-medium">主页: </span>
+                      <a
+                        href={selectedPlugin.manifest.homepage_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        {selectedPlugin.manifest.homepage_url}
+                      </a>
+                    </div>
+                  )}
+                  {selectedPlugin.manifest.repository_url && (
+                    <div className="text-sm">
+                      <span className="font-medium">仓库: </span>
+                      <a
+                        href={selectedPlugin.manifest.repository_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        {selectedPlugin.manifest.repository_url}
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* 详细描述 */}
-              <div>
-                <p className="text-sm font-medium mb-2">详细说明</p>
-                <p className="text-sm text-muted-foreground">
-                  插件的详细描述内容...
-                </p>
-              </div>
-
-              {/* 链接 */}
-              <div className="space-y-2">
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2">
-                  <ExternalLink className="h-4 w-4" />
-                  访问主页
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2">
-                  <ExternalLink className="h-4 w-4" />
-                  查看仓库
-                </Button>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={closeDialog}>
-                取消
-              </Button>
-              <Button>
-                <Download className="h-4 w-4 mr-2" />
-                安装插件
-              </Button>
-            </DialogFooter>
-          </DialogContent>
+              <DialogFooter>
+                {selectedPlugin.manifest.homepage_url && (
+                  <Button
+                    onClick={() => window.open(selectedPlugin.manifest.homepage_url, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    访问主页
+                  </Button>
+                )}
+                {selectedPlugin.manifest.repository_url && (
+                  <Button
+                    variant="outline"
+                    onClick={() => window.open(selectedPlugin.manifest.repository_url, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    查看仓库
+                  </Button>
+                )}
+              </DialogFooter>
+            </DialogContent>
+          )}
         </Dialog>
       </div>
     </ScrollArea>
