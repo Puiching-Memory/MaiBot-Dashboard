@@ -2,6 +2,7 @@ import { Settings as  Palette, Info, Shield, Eye, EyeOff, Copy, RefreshCw, Check
 import { useTheme } from '@/components/use-theme'
 import { useAnimation } from '@/hooks/use-animation'
 import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -431,6 +432,7 @@ function AppearanceTab() {
 
 // 安全设置标签页
 function SecurityTab() {
+  const navigate = useNavigate()
   const [currentToken, setCurrentToken] = useState('')
   const [newToken, setNewToken] = useState('')
   const [showCurrentToken, setShowCurrentToken] = useState(false)
@@ -525,8 +527,15 @@ function SecurityTab() {
         
         toast({
           title: '更新成功',
-          description: 'Access Token 已更新',
+          description: 'Access Token 已更新，即将跳转到登录页',
         })
+
+        // 延迟跳转到登录页
+        setTimeout(() => {
+          // 清除 token，确保需要重新登录
+          localStorage.removeItem('access-token')
+          navigate({ to: '/auth' })
+        }, 1500)
       } else {
         toast({
           title: '更新失败',
@@ -623,12 +632,26 @@ function SecurityTab() {
       setGeneratedToken('')
       setTokenCopied(false)
     }, 300)
+    
+    // 跳转到登录页
+    setTimeout(() => {
+      // 清除 token，确保需要重新登录
+      localStorage.removeItem('access-token')
+      navigate({ to: '/auth' })
+    }, 500)
+  }
+
+  // 处理对话框状态变化（包括点击外部、ESC 等关闭方式）
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      handleCloseDialog()
+    }
   }
 
   return (
     <div className="space-y-6">
       {/* Token 生成成功弹窗 */}
-      <Dialog open={showTokenDialog} onOpenChange={setShowTokenDialog}>
+      <Dialog open={showTokenDialog} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -636,7 +659,7 @@ function SecurityTab() {
               新的 Access Token
             </DialogTitle>
             <DialogDescription>
-              这是您的新 Token，请立即保存。关闭此窗口后将无法再次查看。
+              这是您的新 Token，请立即保存。关闭此窗口后将跳转到登录页面。
             </DialogDescription>
           </DialogHeader>
 
@@ -660,7 +683,8 @@ function SecurityTab() {
                   <ul className="list-disc list-inside space-y-0.5 text-xs">
                     <li>此 Token 仅显示一次，关闭后无法再查看</li>
                     <li>请立即复制并保存到安全的位置</li>
-                    <li>旧的 Token 已失效，请使用新 Token 登录</li>
+                    <li>关闭窗口后将自动跳转到登录页面</li>
+                    <li>请使用新 Token 重新登录系统</li>
                   </ul>
                 </div>
               </div>
