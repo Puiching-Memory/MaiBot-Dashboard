@@ -1,9 +1,22 @@
-import { Menu, Moon, Sun, ChevronLeft, Home, Settings, LogOut, FileText, Server, Boxes, Smile, MessageSquare, UserCircle, FileSearch, BarChart3, Package } from 'lucide-react'
-import { useState } from 'react'
+import { Menu, Moon, Sun, ChevronLeft, Home, Settings, LogOut, FileText, Server, Boxes, Smile, MessageSquare, UserCircle, FileSearch, BarChart3, Package, BookOpen, Search, RotateCw, Palette, ExternalLink } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { useTheme, toggleThemeWithTransition } from './use-theme'
 import { useAuthGuard } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
+import { SearchDialog } from '@/components/search-dialog'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -35,9 +48,23 @@ export function Layout({ children }: LayoutProps) {
   
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const { theme, setTheme } = useTheme()
   const matchRoute = useMatchRoute()
   const navigate = useNavigate()
+
+  // 搜索快捷键监听（Cmd/Ctrl + K）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // 菜单项配置 - 分块结构
   const menuSections: MenuSection[] = [
@@ -120,17 +147,17 @@ export function Layout({ children }: LayoutProps) {
           >
             {/* 移动端始终显示完整 Logo，桌面端根据 sidebarOpen 切换 */}
             <div className={cn(
-              "relative inline-block",
+              "flex items-baseline gap-2",
               !sidebarOpen && "lg:hidden"
             )}>
-              <span className="font-bold text-2xl text-primary whitespace-nowrap">MaiBot</span>
-              <span className="absolute -top-1 -right-10 text-[10px] font-medium text-muted-foreground whitespace-nowrap">
+              <span className="font-bold text-xl text-primary-gradient whitespace-nowrap">MaiBot WebUI</span>
+              <span className="text-xs text-primary/60 whitespace-nowrap">
                 {formatVersion()}
               </span>
             </div>
             {/* 折叠时的 Logo - 仅桌面端显示 */}
             {!sidebarOpen && (
-              <span className="hidden lg:block font-bold text-primary text-2xl">M</span>
+              <span className="hidden lg:block font-bold text-primary-gradient text-2xl">M</span>
             )}
           </div>
         </div>
@@ -266,6 +293,33 @@ export function Layout({ children }: LayoutProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* 搜索框 */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="relative hidden md:flex items-center w-64 h-9 pl-9 pr-16 bg-background/50 border rounded-md hover:bg-accent/50 transition-colors text-left"
+            >
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">搜索...</span>
+              <Kbd size="sm" className="absolute right-2 top-1/2 -translate-y-1/2">
+                <span className="text-xs">⌘</span>K
+              </Kbd>
+            </button>
+
+            {/* 搜索对话框 */}
+            <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+
+            {/* 麦麦文档链接 */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.open('https://docs.mai-mai.org', '_blank')}
+              className="gap-2"
+              title="查看麦麦文档"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">麦麦文档</span>
+            </Button>
+
             {/* 主题切换按钮 */}
             <button
               onClick={(e) => {
@@ -296,7 +350,92 @@ export function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-hidden bg-background">{children}</main>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <main className="flex-1 overflow-hidden bg-background">{children}</main>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-64">
+            {/* 快速导航 */}
+            <ContextMenuItem onClick={() => navigate({ to: '/' })}>
+              <Home className="mr-2 h-4 w-4" />
+              首页
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => navigate({ to: '/settings' })}>
+              <Settings className="mr-2 h-4 w-4" />
+              系统设置
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => navigate({ to: '/logs' })}>
+              <FileSearch className="mr-2 h-4 w-4" />
+              日志查看器
+            </ContextMenuItem>
+            
+            <ContextMenuSeparator />
+            
+            {/* 主题切换子菜单 */}
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>
+                <Palette className="mr-2 h-4 w-4" />
+                切换主题
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent className="w-48">
+                <ContextMenuItem 
+                  onClick={() => setTheme('light')}
+                  disabled={theme === 'light'}
+                >
+                  <Sun className="mr-2 h-4 w-4" />
+                  浅色
+                  {theme === 'light' && <ContextMenuShortcut>✓</ContextMenuShortcut>}
+                </ContextMenuItem>
+                <ContextMenuItem 
+                  onClick={() => setTheme('dark')}
+                  disabled={theme === 'dark'}
+                >
+                  <Moon className="mr-2 h-4 w-4" />
+                  深色
+                  {theme === 'dark' && <ContextMenuShortcut>✓</ContextMenuShortcut>}
+                </ContextMenuItem>
+                <ContextMenuItem 
+                  onClick={() => setTheme('system')}
+                  disabled={theme === 'system'}
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  跟随系统
+                  {theme === 'system' && <ContextMenuShortcut>✓</ContextMenuShortcut>}
+                </ContextMenuItem>
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+            
+            <ContextMenuSeparator />
+            
+            {/* 操作 */}
+            <ContextMenuItem onClick={() => window.location.reload()}>
+              <RotateCw className="mr-2 h-4 w-4" />
+              刷新页面
+              <ContextMenuShortcut>⌘R</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => setSearchOpen(true)}>
+              <Search className="mr-2 h-4 w-4" />
+              搜索
+              <ContextMenuShortcut>⌘K</ContextMenuShortcut>
+            </ContextMenuItem>
+            
+            <ContextMenuSeparator />
+            
+            {/* 外部链接 */}
+            <ContextMenuItem onClick={() => window.open('https://docs.mai-mai.org', '_blank')}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              麦麦文档
+            </ContextMenuItem>
+            
+            <ContextMenuSeparator />
+            
+            {/* 登出 */}
+            <ContextMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
+              登出系统
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
       </div>
     </div>
     </TooltipProvider>

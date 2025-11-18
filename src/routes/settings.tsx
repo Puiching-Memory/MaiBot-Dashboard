@@ -1,7 +1,7 @@
-import { Settings as  Palette, Info, Bell, Shield, Eye, EyeOff, Copy, RefreshCw, Check, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { Settings as  Palette, Info, Shield, Eye, EyeOff, Copy, RefreshCw, Check, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { useTheme } from '@/components/use-theme'
 import { useAnimation } from '@/hooks/use-animation'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -45,14 +45,10 @@ export function SettingsPage() {
 
       {/* 标签页 */}
       <Tabs defaultValue="appearance" className="w-full">
-        <TabsList className="grid w-full max-w-full sm:max-w-2xl grid-cols-4">
+        <TabsList className="grid w-full max-w-full sm:max-w-2xl grid-cols-3">
           <TabsTrigger value="appearance" className="gap-2">
             <Palette className="h-4 w-4" strokeWidth={2} fill="none" />
             外观
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2">
-            <Bell className="h-4 w-4" strokeWidth={2} fill="none" />
-            通知
           </TabsTrigger>
           <TabsTrigger value="security" className="gap-2">
             <Shield className="h-4 w-4" strokeWidth={2} fill="none" />
@@ -69,10 +65,6 @@ export function SettingsPage() {
             <AppearanceTab />
           </TabsContent>
 
-          <TabsContent value="notifications" className="mt-0">
-            <NotificationsTab />
-          </TabsContent>
-
           <TabsContent value="security" className="mt-0">
             <SecurityTab />
           </TabsContent>
@@ -86,6 +78,127 @@ export function SettingsPage() {
   )
 }
 
+// 应用主题色的辅助函数
+function applyAccentColor(color: string) {
+  const root = document.documentElement
+  
+  // 预设颜色配置
+  const colors = {
+    // 单色
+    blue: { 
+      hsl: '221.2 83.2% 53.3%', 
+      darkHsl: '217.2 91.2% 59.8%',
+      gradient: null
+    },
+    purple: { 
+      hsl: '271 91% 65%', 
+      darkHsl: '270 95% 75%',
+      gradient: null
+    },
+    green: { 
+      hsl: '142 71% 45%', 
+      darkHsl: '142 76% 36%',
+      gradient: null
+    },
+    orange: { 
+      hsl: '25 95% 53%', 
+      darkHsl: '20 90% 48%',
+      gradient: null
+    },
+    pink: { 
+      hsl: '330 81% 60%', 
+      darkHsl: '330 85% 70%',
+      gradient: null
+    },
+    red: { 
+      hsl: '0 84% 60%', 
+      darkHsl: '0 90% 70%',
+      gradient: null
+    },
+    
+    // 渐变色
+    'gradient-sunset': { 
+      hsl: '15 95% 60%', 
+      darkHsl: '15 95% 65%',
+      gradient: 'linear-gradient(135deg, hsl(25 95% 53%) 0%, hsl(330 81% 60%) 100%)'
+    },
+    'gradient-ocean': { 
+      hsl: '200 90% 55%', 
+      darkHsl: '200 90% 60%',
+      gradient: 'linear-gradient(135deg, hsl(221.2 83.2% 53.3%) 0%, hsl(189 94% 43%) 100%)'
+    },
+    'gradient-forest': { 
+      hsl: '150 70% 45%', 
+      darkHsl: '150 75% 40%',
+      gradient: 'linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(158 64% 52%) 100%)'
+    },
+    'gradient-aurora': { 
+      hsl: '310 85% 65%', 
+      darkHsl: '310 90% 70%',
+      gradient: 'linear-gradient(135deg, hsl(271 91% 65%) 0%, hsl(330 81% 60%) 100%)'
+    },
+    'gradient-fire': { 
+      hsl: '15 95% 55%', 
+      darkHsl: '15 95% 60%',
+      gradient: 'linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(25 95% 53%) 100%)'
+    },
+    'gradient-twilight': { 
+      hsl: '250 90% 60%', 
+      darkHsl: '250 95% 65%',
+      gradient: 'linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(271 91% 65%) 100%)'
+    },
+  }
+
+  const selectedColor = colors[color as keyof typeof colors]
+  if (selectedColor) {
+    // 设置主色
+    root.style.setProperty('--primary', selectedColor.hsl)
+    
+    // 设置渐变（如果有）
+    if (selectedColor.gradient) {
+      root.style.setProperty('--primary-gradient', selectedColor.gradient)
+      root.classList.add('has-gradient')
+    } else {
+      root.style.removeProperty('--primary-gradient')
+      root.classList.remove('has-gradient')
+    }
+  } else if (color.startsWith('#')) {
+    // 自定义颜色 - 将 HEX 转换为 HSL
+    const hexToHsl = (hex: string) => {
+      // 移除 # 号
+      hex = hex.replace('#', '')
+      
+      // 转换为 RGB
+      const r = parseInt(hex.substring(0, 2), 16) / 255
+      const g = parseInt(hex.substring(2, 4), 16) / 255
+      const b = parseInt(hex.substring(4, 6), 16) / 255
+      
+      const max = Math.max(r, g, b)
+      const min = Math.min(r, g, b)
+      let h = 0
+      let s = 0
+      const l = (max + min) / 2
+      
+      if (max !== min) {
+        const d = max - min
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+        
+        switch (max) {
+          case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break
+          case g: h = ((b - r) / d + 2) / 6; break
+          case b: h = ((r - g) / d + 4) / 6; break
+        }
+      }
+      
+      return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
+    }
+    
+    root.style.setProperty('--primary', hexToHsl(color))
+    root.style.removeProperty('--primary-gradient')
+    root.classList.remove('has-gradient')
+  }
+}
+
 // 外观设置标签页
 function AppearanceTab() {
   const { theme, setTheme } = useTheme()
@@ -94,25 +207,16 @@ function AppearanceTab() {
     return localStorage.getItem('accent-color') || 'blue'
   })
 
+  // 页面加载时应用保存的主题色
+  useEffect(() => {
+    const savedColor = localStorage.getItem('accent-color') || 'blue'
+    applyAccentColor(savedColor)
+  }, [])
+
   const handleAccentColorChange = (color: string) => {
     setAccentColor(color)
     localStorage.setItem('accent-color', color)
-    
-    // 更新 CSS 变量
-    const root = document.documentElement
-    const colors = {
-      blue: { hsl: '221.2 83.2% 53.3%', darkHsl: '217.2 91.2% 59.8%' },
-      purple: { hsl: '271 91% 65%', darkHsl: '270 95% 75%' },
-      green: { hsl: '142 71% 45%', darkHsl: '142 76% 36%' },
-      orange: { hsl: '25 95% 53%', darkHsl: '20 90% 48%' },
-      pink: { hsl: '330 81% 60%', darkHsl: '330 85% 70%' },
-    }
-
-    const selectedColor = colors[color as keyof typeof colors]
-    if (selectedColor) {
-      root.style.setProperty('--primary', selectedColor.hsl)
-      // 如果需要在暗色模式下使用不同的色调，可以在这里处理
-    }
+    applyAccentColor(color)
   }
 
   return (
@@ -148,42 +252,133 @@ function AppearanceTab() {
       {/* 主题色 */}
       <div>
         <h3 className="text-lg font-semibold mb-4">主题色</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          <AccentColorOption
-            value="blue"
-            current={accentColor}
-            onChange={handleAccentColorChange}
-            label="蓝色"
-            colorClass="bg-blue-500"
-          />
-          <AccentColorOption
-            value="purple"
-            current={accentColor}
-            onChange={handleAccentColorChange}
-            label="紫色"
-            colorClass="bg-purple-500"
-          />
-          <AccentColorOption
-            value="green"
-            current={accentColor}
-            onChange={handleAccentColorChange}
-            label="绿色"
-            colorClass="bg-green-500"
-          />
-          <AccentColorOption
-            value="orange"
-            current={accentColor}
-            onChange={handleAccentColorChange}
-            label="橙色"
-            colorClass="bg-orange-500"
-          />
-          <AccentColorOption
-            value="pink"
-            current={accentColor}
-            onChange={handleAccentColorChange}
-            label="粉色"
-            colorClass="bg-pink-500"
-          />
+        
+        {/* 单色预设 */}
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-sm font-medium mb-3">单色</h4>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+              <ColorPresetOption
+                value="blue"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="蓝色"
+                colorClass="bg-blue-500"
+              />
+              <ColorPresetOption
+                value="purple"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="紫色"
+                colorClass="bg-purple-500"
+              />
+              <ColorPresetOption
+                value="green"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="绿色"
+                colorClass="bg-green-500"
+              />
+              <ColorPresetOption
+                value="orange"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="橙色"
+                colorClass="bg-orange-500"
+              />
+              <ColorPresetOption
+                value="pink"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="粉色"
+                colorClass="bg-pink-500"
+              />
+              <ColorPresetOption
+                value="red"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="红色"
+                colorClass="bg-red-500"
+              />
+            </div>
+          </div>
+
+          {/* 渐变色预设 */}
+          <div>
+            <h4 className="text-sm font-medium mb-3">渐变色</h4>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+              <ColorPresetOption
+                value="gradient-sunset"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="日落"
+                colorClass="bg-gradient-to-r from-orange-500 to-pink-500"
+              />
+              <ColorPresetOption
+                value="gradient-ocean"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="海洋"
+                colorClass="bg-gradient-to-r from-blue-500 to-cyan-500"
+              />
+              <ColorPresetOption
+                value="gradient-forest"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="森林"
+                colorClass="bg-gradient-to-r from-green-500 to-emerald-500"
+              />
+              <ColorPresetOption
+                value="gradient-aurora"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="极光"
+                colorClass="bg-gradient-to-r from-purple-500 to-pink-500"
+              />
+              <ColorPresetOption
+                value="gradient-fire"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="烈焰"
+                colorClass="bg-gradient-to-r from-red-500 to-orange-500"
+              />
+              <ColorPresetOption
+                value="gradient-twilight"
+                current={accentColor}
+                onChange={handleAccentColorChange}
+                label="暮光"
+                colorClass="bg-gradient-to-r from-indigo-500 to-purple-500"
+              />
+            </div>
+          </div>
+
+          {/* 自定义颜色选择器 */}
+          <div>
+            <h4 className="text-sm font-medium mb-3">自定义颜色</h4>
+            <div className="flex gap-4 items-center">
+              <div className="flex-1">
+                <input
+                  type="color"
+                  value={accentColor.startsWith('#') ? accentColor : '#3b82f6'}
+                  onChange={(e) => handleAccentColorChange(e.target.value)}
+                  className="h-12 w-full rounded-lg border-2 border-border cursor-pointer"
+                  title="选择自定义颜色"
+                />
+              </div>
+              <div className="flex-1">
+                <Input
+                  type="text"
+                  value={accentColor}
+                  onChange={(e) => handleAccentColorChange(e.target.value)}
+                  placeholder="#3b82f6"
+                  className="font-mono"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              点击色块选择颜色，或手动输入 HEX 颜色代码
+            </p>
+          </div>
         </div>
       </div>
 
@@ -229,18 +424,6 @@ function AppearanceTab() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
-
-// 通知设置标签页
-function NotificationsTab() {
-  return (
-    <div className="space-y-6">
-      <div className="rounded-lg border bg-card p-6">
-        <h3 className="text-lg font-semibold mb-2">通知设置</h3>
-        <p className="text-muted-foreground">通知功能正在开发中...</p>
       </div>
     </div>
   )
@@ -382,6 +565,9 @@ function SecurityTab() {
       if (response.ok && data.success) {
         // 更新本地存储
         localStorage.setItem('access-token', data.token)
+        
+        // 更新当前显示的 Token
+        setCurrentToken(data.token)
         
         // 显示弹窗展示新 Token
         setGeneratedToken(data.token)
@@ -744,7 +930,7 @@ function ThemeOption({ value, current, onChange, label, description }: ThemeOpti
   )
 }
 
-type AccentColorOptionProps = {
+type ColorPresetOptionProps = {
   value: string
   current: string
   onChange: (color: string) => void
@@ -752,14 +938,14 @@ type AccentColorOptionProps = {
   colorClass: string
 }
 
-function AccentColorOption({ value, current, onChange, label, colorClass }: AccentColorOptionProps) {
+function ColorPresetOption({ value, current, onChange, label, colorClass }: ColorPresetOptionProps) {
   const isSelected = current === value
 
   return (
     <button
       onClick={() => onChange(value)}
       className={cn(
-        'relative rounded-lg border-2 p-4 text-left transition-all',
+        'relative rounded-lg border-2 p-3 text-left transition-all',
         'hover:border-primary/50 hover:bg-accent/50',
         isSelected ? 'border-primary bg-accent' : 'border-border'
       )}
@@ -769,9 +955,9 @@ function AccentColorOption({ value, current, onChange, label, colorClass }: Acce
         <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary" />
       )}
 
-      <div className="flex flex-col items-center gap-3">
-        <div className={cn('h-12 w-12 rounded-full', colorClass)} />
-        <div className="text-sm font-medium">{label}</div>
+      <div className="flex flex-col items-center gap-2">
+        <div className={cn('h-10 w-10 rounded-full', colorClass)} />
+        <div className="text-xs font-medium">{label}</div>
       </div>
     </button>
   )

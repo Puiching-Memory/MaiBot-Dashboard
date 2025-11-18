@@ -1295,24 +1295,98 @@ function ChatSection({
                   </div>
 
                   <div className="space-y-4">
-                    {/* 目标聊天流 */}
+                    {/* 配置类型选择 */}
                     <div className="grid gap-2">
-                      <Label htmlFor={`rule-target-${index}`} className="text-xs font-medium">
-                        目标聊天流 (Target)
-                      </Label>
-                      <Input
-                        id={`rule-target-${index}`}
-                        placeholder='留空=全局，或填 "platform:id:type"'
-                        value={rule.target}
-                        onChange={(e) =>
-                          updateTalkValueRule(index, 'target', e.target.value)
-                        }
-                        className="font-mono text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        示例：qq:1919810:group 或 qq:114514:private
-                      </p>
+                      <Label className="text-xs font-medium">配置类型</Label>
+                      <Select
+                        value={rule.target === '' ? 'global' : 'specific'}
+                        onValueChange={(value) => {
+                          if (value === 'global') {
+                            updateTalkValueRule(index, 'target', '')
+                          } else {
+                            // 切换到详细配置时，设置默认值
+                            updateTalkValueRule(index, 'target', 'qq::group')
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="global">全局配置</SelectItem>
+                          <SelectItem value="specific">详细配置</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
+
+                    {/* 详细配置选项 - 只在非全局时显示 */}
+                    {rule.target !== '' && (() => {
+                      // 解析聊天流 ID（格式：platform:id:type）
+                      const parts = rule.target.split(':')
+                      const platform = parts[0] || 'qq'
+                      const chatId = parts[1] || ''
+                      const chatType = parts[2] || 'group'
+                      
+                      return (
+                        <div className="grid gap-4 p-4 rounded-lg bg-muted/50">
+                          <div className="grid grid-cols-3 gap-3">
+                            {/* 平台选择 */}
+                            <div className="grid gap-2">
+                              <Label className="text-xs font-medium">平台</Label>
+                              <Select
+                                value={platform}
+                                onValueChange={(value) => {
+                                  updateTalkValueRule(index, 'target', `${value}:${chatId}:${chatType}`)
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="qq">QQ</SelectItem>
+                                  <SelectItem value="wx">微信</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* 群 ID 输入 */}
+                            <div className="grid gap-2">
+                              <Label className="text-xs font-medium">群 ID</Label>
+                              <Input
+                                value={chatId}
+                                onChange={(e) => {
+                                  updateTalkValueRule(index, 'target', `${platform}:${e.target.value}:${chatType}`)
+                                }}
+                                placeholder="输入群 ID"
+                                className="font-mono text-sm"
+                              />
+                            </div>
+
+                            {/* 类型选择 */}
+                            <div className="grid gap-2">
+                              <Label className="text-xs font-medium">类型</Label>
+                              <Select
+                                value={chatType}
+                                onValueChange={(value) => {
+                                  updateTalkValueRule(index, 'target', `${platform}:${chatId}:${value}`)
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="group">群组（group）</SelectItem>
+                                  <SelectItem value="private">私聊（private）</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            当前聊天流 ID：{rule.target || '（未设置）'}
+                          </p>
+                        </div>
+                      )
+                    })()}
 
                     {/* 时间段选择器 */}
                     <div className="grid gap-2">
@@ -1457,6 +1531,103 @@ function ExpressionSection({
     )
   }
 
+  // 表达共享组成员输入组件
+  const ExpressionGroupMemberInput = ({
+    member,
+    groupIndex,
+    memberIndex,
+    availableChatIds,
+  }: {
+    member: string
+    groupIndex: number
+    memberIndex: number
+    availableChatIds: string[]
+  }) => {
+    // 判断当前成员是否在可选列表中
+    const isFromList = availableChatIds.includes(member) || member === '*'
+    const [inputMode, setInputMode] = useState(!isFromList)
+    
+    return (
+      <div className="flex gap-2">
+        {/* 输入模式切换 */}
+        <div className="flex-1 flex gap-2">
+          {inputMode ? (
+            // 手动输入模式
+            <>
+              <Input
+                value={member}
+                onChange={(e) => updateGroupMember(groupIndex, memberIndex, e.target.value)}
+                placeholder='输入 "*" 或 "qq:123456:group"'
+                className="flex-1"
+              />
+              {availableChatIds.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setInputMode(false)}
+                  title="切换到下拉选择"
+                >
+                  下拉
+                </Button>
+              )}
+            </>
+          ) : (
+            // 下拉选择模式
+            <>
+              <Select
+                value={member}
+                onValueChange={(value) => updateGroupMember(groupIndex, memberIndex, value)}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="选择聊天流" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="*">* (全局共享)</SelectItem>
+                  {availableChatIds.map((chatId, idx) => (
+                    <SelectItem key={idx} value={chatId}>
+                      {chatId}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setInputMode(true)}
+                title="切换到手动输入"
+              >
+                输入
+              </Button>
+            </>
+          )}
+        </div>
+        
+        {/* 删除按钮 */}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button size="icon" variant="outline">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除</AlertDialogTitle>
+              <AlertDialogDescription>
+                确定要删除组成员 "{member || '(空)'}" 吗？此操作无法撤销。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction onClick={() => removeGroupMember(groupIndex, memberIndex)}>
+                删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    )
+  }
+
   // 添加表达组
   const addExpressionGroup = () => {
     onChange({
@@ -1522,52 +1693,142 @@ function ExpressionSection({
           </div>
 
           <div className="space-y-4">
-            {config.learning_list.map((rule, index) => (
-              <div key={index} className="rounded-lg border p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">
-                    规则 {index + 1} {rule[0] === '' && '（全局配置）'}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <LearningRulePreview rule={rule} />
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="ghost">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>确认删除</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            确定要删除学习规则 {index + 1} 吗？此操作无法撤销。
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>取消</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => removeLearningRule(index)}>
-                            删除
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+            {config.learning_list.map((rule, index) => {
+              // 检查是否已有全局配置（rule[0] === ''）
+              const hasGlobalConfig = config.learning_list.some((r, i) => i !== index && r[0] === '')
+              const isGlobal = rule[0] === ''
+              
+              // 解析聊天流 ID（格式：platform:id:type）
+              const parts = rule[0].split(':')
+              const platform = parts[0] || 'qq'
+              const chatId = parts[1] || ''
+              const chatType = parts[2] || 'group'
+              
+              return (
+                <div key={index} className="rounded-lg border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      规则 {index + 1} {isGlobal && '（全局配置）'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <LearningRulePreview rule={rule} />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="ghost">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>确认删除</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              确定要删除学习规则 {index + 1} 吗？此操作无法撤销。
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>取消</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => removeLearningRule(index)}>
+                              删除
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-4">
-                  {/* 聊天流 ID */}
-                  <div className="grid gap-2">
-                    <Label className="text-xs font-medium">聊天流 ID</Label>
-                    <Input
-                      value={rule[0]}
-                      onChange={(e) => updateLearningRule(index, 0, e.target.value)}
-                      placeholder="留空表示全局配置，例如：qq:1919810:group"
-                      className="font-mono text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      格式：platform:id:type（group/private）
-                    </p>
-                  </div>
+                  <div className="space-y-4">
+                    {/* 配置类型选择 */}
+                    <div className="grid gap-2">
+                      <Label className="text-xs font-medium">配置类型</Label>
+                      <Select
+                        value={isGlobal ? 'global' : 'specific'}
+                        onValueChange={(value) => {
+                          if (value === 'global') {
+                            updateLearningRule(index, 0, '')
+                          } else {
+                            // 切换到详细配置时，设置默认值
+                            updateLearningRule(index, 0, 'qq::group')
+                          }
+                        }}
+                        disabled={hasGlobalConfig && !isGlobal}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="global">全局配置</SelectItem>
+                          <SelectItem value="specific" disabled={hasGlobalConfig && !isGlobal}>
+                            详细配置
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {hasGlobalConfig && !isGlobal && (
+                        <p className="text-xs text-amber-600">
+                          已存在全局配置，无法创建新的全局配置
+                        </p>
+                      )}
+                    </div>
+
+                    {/* 详细配置选项 - 只在非全局时显示 */}
+                    {!isGlobal && (
+                      <div className="grid gap-4 p-4 rounded-lg bg-muted/50">
+                        <div className="grid grid-cols-3 gap-3">
+                          {/* 平台选择 */}
+                          <div className="grid gap-2">
+                            <Label className="text-xs font-medium">平台</Label>
+                            <Select
+                              value={platform}
+                              onValueChange={(value) => {
+                                updateLearningRule(index, 0, `${value}:${chatId}:${chatType}`)
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="qq">QQ</SelectItem>
+                                <SelectItem value="wx">微信</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* 群 ID 输入 */}
+                          <div className="grid gap-2">
+                            <Label className="text-xs font-medium">群 ID</Label>
+                            <Input
+                              value={chatId}
+                              onChange={(e) => {
+                                updateLearningRule(index, 0, `${platform}:${e.target.value}:${chatType}`)
+                              }}
+                              placeholder="输入群 ID"
+                              className="font-mono text-sm"
+                            />
+                          </div>
+
+                          {/* 类型选择 */}
+                          <div className="grid gap-2">
+                            <Label className="text-xs font-medium">类型</Label>
+                            <Select
+                              value={chatType}
+                              onValueChange={(value) => {
+                                updateLearningRule(index, 0, `${platform}:${chatId}:${value}`)
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="group">群组（group）</SelectItem>
+                                <SelectItem value="private">私聊（private）</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          当前聊天流 ID：{rule[0] || '（未设置）'}
+                        </p>
+                      </div>
+                    )}
 
                   {/* 使用学到的表达 - 改为开关 */}
                   <div className="grid gap-2">
@@ -1645,7 +1906,8 @@ function ExpressionSection({
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
 
             {config.learning_list.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
@@ -1673,58 +1935,30 @@ function ExpressionSection({
           </div>
 
           <div className="space-y-4">
-            {config.expression_groups.map((group, groupIndex) => (
-              <div key={groupIndex} className="rounded-lg border p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">
-                    共享组 {groupIndex + 1}
-                    {group.length === 1 && group[0] === '*' && '（全局共享）'}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => addGroupMember(groupIndex)}
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="ghost">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>确认删除</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            确定要删除共享组 {groupIndex + 1} 吗？此操作无法撤销。
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>取消</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => removeExpressionGroup(groupIndex)}>
-                            删除
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {group.map((member, memberIndex) => (
-                    <div key={memberIndex} className="flex gap-2">
-                      <Input
-                        value={member}
-                        onChange={(e) =>
-                          updateGroupMember(groupIndex, memberIndex, e.target.value)
-                        }
-                        placeholder='输入 "*" 表示全局共享，或 "qq:123456:group"'
-                      />
+            {config.expression_groups.map((group, groupIndex) => {
+              // 获取所有已配置的聊天流 ID（用于下拉框选项）
+              const availableChatIds = config.learning_list
+                .map(rule => rule[0])
+                .filter(id => id !== '') // 过滤掉全局配置
+              
+              return (
+                <div key={groupIndex} className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      共享组 {groupIndex + 1}
+                      {group.length === 1 && group[0] === '*' && '（全局共享）'}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => addGroupMember(groupIndex)}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button size="icon" variant="outline">
+                          <Button size="sm" variant="ghost">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
@@ -1732,29 +1966,38 @@ function ExpressionSection({
                           <AlertDialogHeader>
                             <AlertDialogTitle>确认删除</AlertDialogTitle>
                             <AlertDialogDescription>
-                              确定要删除组成员 "{member || '(空)'}" 吗？此操作无法撤销。
+                              确定要删除共享组 {groupIndex + 1} 吗？此操作无法撤销。
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>取消</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => removeGroupMember(groupIndex, memberIndex)}
-                            >
+                            <AlertDialogAction onClick={() => removeExpressionGroup(groupIndex)}>
                               删除
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
                     </div>
-                  ))}
-                </div>
+                  </div>
 
-                <p className="text-xs text-muted-foreground">
-                  提示：输入 "*" 启用全局共享；或输入具体 chat_id（如
-                  qq:114514:private）组成互通组
-                </p>
-              </div>
-            ))}
+                  <div className="space-y-2">
+                    {group.map((member, memberIndex) => (
+                      <ExpressionGroupMemberInput
+                        key={memberIndex}
+                        member={member}
+                        groupIndex={groupIndex}
+                        memberIndex={memberIndex}
+                        availableChatIds={availableChatIds}
+                      />
+                    ))}
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    提示：可以从下拉框选择已配置的聊天流，或手动输入。输入 "*" 启用全局共享
+                  </p>
+                </div>
+              )
+            })}
 
             {config.expression_groups.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">

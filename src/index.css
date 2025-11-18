@@ -12,6 +12,7 @@
     --popover-foreground: 222.2 84% 4.9%;
     --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 210 40% 98%;
+    --primary-gradient: none; /* 默认无渐变 */
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
@@ -38,6 +39,7 @@
     --popover-foreground: 210 40% 98%;
     --primary: 217.2 91.2% 59.8%;
     --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-gradient: none; /* 默认无渐变 */
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -61,6 +63,32 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* 渐变色背景工具类 */
+  .bg-primary-gradient {
+    background: var(--primary-gradient, hsl(var(--primary)));
+  }
+  
+  /* 渐变色文字工具类 - 默认使用普通文字颜色 */
+  .text-primary-gradient {
+    color: hsl(var(--primary));
+  }
+  
+  /* 当应用了 has-gradient 类时，使用渐变文字效果 */
+  .has-gradient .text-primary-gradient {
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+  
+  /* 渐变色边框工具类 */
+  .border-primary-gradient {
+    border-image: var(--primary-gradient, linear-gradient(to right, hsl(var(--primary)), hsl(var(--primary)))) 1;
   }
 }
 

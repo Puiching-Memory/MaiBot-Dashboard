@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,15 +10,21 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card } from '@/components/ui/card'
-import { Search, RefreshCw, Download, Filter, Trash2, Pause, Play } from 'lucide-react'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Search, RefreshCw, Download, Filter, Trash2, Pause, Play, Calendar as CalendarIcon, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logWebSocket, type LogEntry } from '@/lib/log-websocket'
+import { format } from 'date-fns'
+import { zhCN } from 'date-fns/locale'
 
 export function LogViewerPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [levelFilter, setLevelFilter] = useState<string>('all')
-  const [loading, setLoading] = useState(false)
+  const [moduleFilter, setModuleFilter] = useState<string>('all')
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined)
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined)
   const [autoScroll, setAutoScroll] = useState(true)
   const [connected, setConnected] = useState(false)
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -56,6 +62,12 @@ export function LogViewerPage() {
     }
   }, [logs, autoScroll])
 
+  // 获取所有唯一的模块名
+  const uniqueModules = useMemo(() => {
+    const modules = new Set(logs.map(log => log.module))
+    return Array.from(modules).sort()
+  }, [logs])
+
   // 日志级别颜色映射
   const getLevelColor = (level: LogEntry['level']) => {
     switch (level) {
@@ -91,10 +103,9 @@ export function LogViewerPage() {
     }
   }
 
-  // 刷新日志
+  // 刷新日志（刷新页面）
   const handleRefresh = () => {
-    setLoading(true)
-    setTimeout(() => setLoading(false), 1000)
+    window.location.reload()
   }
 
   // 清空日志
@@ -103,14 +114,18 @@ export function LogViewerPage() {
     setLogs([])
   }
 
-  // 导出日志
+  // 导出日志为 TXT 格式
   const handleExport = () => {
-    const dataStr = JSON.stringify(logs, null, 2)
-    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    // 格式化日志为文本
+    const logText = filteredLogs.map(log => 
+      `${log.timestamp} [${log.level.padEnd(8)}] [${log.module}] ${log.message}`
+    ).join('\n')
+    
+    const dataBlob = new Blob([logText], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(dataBlob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `logs-${new Date().toISOString()}.json`
+    link.download = `logs-${format(new Date(), 'yyyy-MM-dd-HHmmss')}.txt`
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -120,15 +135,46 @@ export function LogViewerPage() {
     setAutoScroll(!autoScroll)
   }
 
+  // 清除时间筛选
+  const clearDateFilter = () => {
+    setDateFrom(undefined)
+    setDateTo(undefined)
+  }
+
   // 过滤日志
-  const filteredLogs = logs.filter((log) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      log.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.module.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesLevel = levelFilter === 'all' || log.level === levelFilter
-    return matchesSearch && matchesLevel
-  })
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log) => {
+      // 搜索过滤
+      const matchesSearch =
+        searchQuery === '' ||
+        log.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.module.toLowerCase().includes(searchQuery.toLowerCase())
+      
+      // 级别过滤
+      const matchesLevel = levelFilter === 'all' || log.level === levelFilter
+      
+      // 模块过滤
+      const matchesModule = moduleFilter === 'all' || log.module === moduleFilter
+      
+      // 时间过滤
+      let matchesDate = true
+      if (dateFrom || dateTo) {
+        const logDate = new Date(log.timestamp)
+        if (dateFrom) {
+          const fromDate = new Date(dateFrom)
+          fromDate.setHours(0, 0, 0, 0)
+          matchesDate = matchesDate && logDate >= fromDate
+        }
+        if (dateTo) {
+          const toDate = new Date(dateTo)
+          toDate.setHours(23, 59, 59, 999)
+          matchesDate = matchesDate && logDate <= toDate
+        }
+      }
+      
+      return matchesSearch && matchesLevel && matchesModule && matchesDate
+    })
+  }, [logs, searchQuery, levelFilter, moduleFilter, dateFrom, dateTo])
 
   return (
     <ScrollArea className="h-full">
@@ -175,7 +221,7 @@ export function LogViewerPage() {
               <Select value={levelFilter} onValueChange={setLevelFilter}>
                 <SelectTrigger className="w-full sm:w-[180px]">
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="选择日志级别" />
+                  <SelectValue placeholder="日志级别" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部级别</SelectItem>
@@ -186,9 +232,91 @@ export function LogViewerPage() {
                   <SelectItem value="CRITICAL">CRITICAL</SelectItem>
                 </SelectContent>
               </Select>
+
+              {/* 模块筛选 */}
+              <Select value={moduleFilter} onValueChange={setModuleFilter}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="模块" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部模块</SelectItem>
+                  {uniqueModules.map(module => (
+                    <SelectItem key={module} value={module}>
+                      {module}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* 第二行：操作按钮 */}
+            {/* 第二行：时间筛选 */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* 开始日期 */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-full sm:w-[240px] justify-start text-left font-normal',
+                      !dateFrom && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateFrom ? format(dateFrom, 'PPP', { locale: zhCN }) : '开始日期'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateFrom}
+                    onSelect={setDateFrom}
+                    initialFocus
+                    locale={zhCN}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* 结束日期 */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-full sm:w-[240px] justify-start text-left font-normal',
+                      !dateTo && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateTo ? format(dateTo, 'PPP', { locale: zhCN }) : '结束日期'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateTo}
+                    onSelect={setDateTo}
+                    initialFocus
+                    locale={zhCN}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* 清除时间筛选 */}
+              {(dateFrom || dateTo) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearDateFilter}
+                  className="w-full sm:w-auto"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  清除时间筛选
+                </Button>
+              )}
+            </div>
+
+            {/* 第三行：操作按钮 */}
             <div className="flex flex-wrap gap-2">
               <Button
                 variant={autoScroll ? 'default' : 'outline'}
@@ -208,9 +336,8 @@ export function LogViewerPage() {
                 variant="outline"
                 size="sm"
                 onClick={handleRefresh}
-                disabled={loading}
               >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className="h-4 w-4" />
                 <span className="ml-2">刷新</span>
               </Button>
               <Button variant="outline" size="sm" onClick={handleClear}>
@@ -223,7 +350,7 @@ export function LogViewerPage() {
               </Button>
               <div className="flex-1" />
               <div className="text-sm text-muted-foreground flex items-center">
-                {filteredLogs.length} 条日志
+                {filteredLogs.length} / {logs.length} 条日志
               </div>
             </div>
           </div>
