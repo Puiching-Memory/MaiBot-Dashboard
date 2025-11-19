@@ -1,4 +1,4 @@
-import { Users, Search, Edit, Trash2, Eye, User, MessageSquare, Hash, Clock } from 'lucide-react'
+import { Users, Search, Edit, Trash2, Eye, User, MessageSquare, Hash, Clock, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -42,14 +43,14 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import type { PersonInfo, PersonUpdateRequest } from '@/types/person'
-import { getPersonList, getPersonDetail, updatePerson, deletePerson, getPersonStats } from '@/lib/person-api'
+import { getPersonList, getPersonDetail, updatePerson, deletePerson, getPersonStats, batchDeletePersons } from '@/lib/person-api'
 
 export function PersonManagementPage() {
   const [persons, setPersons] = useState<PersonInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(20)
   const [search, setSearch] = useState('')
   const [filterKnown, setFilterKnown] = useState<boolean | undefined>(undefined)
   const [filterPlatform, setFilterPlatform] = useState<string | undefined>(undefined)
@@ -58,6 +59,9 @@ export function PersonManagementPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [deleteConfirmPerson, setDeleteConfirmPerson] = useState<PersonInfo | null>(null)
   const [stats, setStats] = useState({ total: 0, known: 0, unknown: 0, platforms: {} as Record<string, number> })
+  const [selectedPersons, setSelectedPersons] = useState<Set<string>>(new Set())
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false)
+  const [jumpToPage, setJumpToPage] = useState('')
   const { toast } = useToast()
 
   // 加载人物列表
@@ -146,6 +150,76 @@ export function PersonManagementPage() {
   const platforms = useMemo(() => {
     return Object.keys(stats.platforms)
   }, [stats.platforms])
+
+  // 切换单个人物选择
+  const togglePersonSelection = (personId: string) => {
+    const newSelected = new Set(selectedPersons)
+    if (newSelected.has(personId)) {
+      newSelected.delete(personId)
+    } else {
+      newSelected.add(personId)
+    }
+    setSelectedPersons(newSelected)
+  }
+
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedPersons.size === persons.length && persons.length > 0) {
+      setSelectedPersons(new Set())
+    } else {
+      setSelectedPersons(new Set(persons.map(p => p.person_id)))
+    }
+  }
+
+  // 打开批量删除对话框
+  const openBatchDeleteDialog = () => {
+    if (selectedPersons.size === 0) {
+      toast({
+        title: '未选择任何人物',
+        description: '请先选择要删除的人物',
+        variant: 'destructive',
+      })
+      return
+    }
+    setBatchDeleteDialogOpen(true)
+  }
+
+  // 批量删除确认
+  const handleBatchDelete = async () => {
+    try {
+      const result = await batchDeletePersons(Array.from(selectedPersons))
+      toast({
+        title: '批量删除完成',
+        description: result.message,
+      })
+      setSelectedPersons(new Set())
+      setBatchDeleteDialogOpen(false)
+      loadPersons()
+      loadStats()
+    } catch (error) {
+      toast({
+        title: '批量删除失败',
+        description: error instanceof Error ? error.message : '批量删除失败',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // 页面跳转
+  const handleJumpToPage = () => {
+    const targetPage = parseInt(jumpToPage)
+    const totalPages = Math.ceil(total / pageSize)
+    if (targetPage >= 1 && targetPage <= totalPages) {
+      setPage(targetPage)
+      setJumpToPage('')
+    } else {
+      toast({
+        title: '无效的页码',
+        description: `请输入1-${totalPages}之间的页码`,
+        variant: 'destructive',
+      })
+    }
+  }
 
   // 格式化时间
   const formatTime = (timestamp: number | null) => {
@@ -247,6 +321,46 @@ export function PersonManagementPage() {
             </Select>
           </div>
         </div>
+
+        {/* 批量操作工具栏 */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 pt-4 border-t">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {selectedPersons.size > 0 && (
+              <span>已选择 {selectedPersons.size} 个人物</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="page-size" className="text-sm whitespace-nowrap">每页显示</Label>
+            <Select
+              value={pageSize.toString()}
+              onValueChange={(value) => {
+                setPageSize(parseInt(value))
+                setPage(1)
+                setSelectedPersons(new Set())
+              }}
+            >
+              <SelectTrigger id="page-size" className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+            {selectedPersons.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={openBatchDeleteDialog}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                批量删除
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 人物列表 */}
@@ -256,6 +370,13 @@ export function PersonManagementPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={persons.length > 0 && selectedPersons.size === persons.length}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="全选"
+                  />
+                </TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead>名称</TableHead>
                 <TableHead>昵称</TableHead>
@@ -268,19 +389,26 @@ export function PersonManagementPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     加载中...
                   </TableCell>
                 </TableRow>
               ) : persons.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     暂无数据
                   </TableCell>
                 </TableRow>
               ) : (
                 persons.map((person) => (
                   <TableRow key={person.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedPersons.has(person.person_id)}
+                        onCheckedChange={() => togglePersonSelection(person.person_id)}
+                        aria-label={`选择 ${person.person_name || person.nickname || person.user_id}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className={cn(
                         'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium',
@@ -345,8 +473,13 @@ export function PersonManagementPage() {
           ) : (
             persons.map((person) => (
               <div key={person.id} className="rounded-lg border bg-card p-4 space-y-3 overflow-hidden">
-                {/* 状态和名称 */}
-                <div className="flex items-start justify-between gap-2">
+                {/* 复选框和状态 */}
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    checked={selectedPersons.has(person.person_id)}
+                    onCheckedChange={() => togglePersonSelection(person.person_id)}
+                    className="mt-1"
+                  />
                   <div className="flex-1 min-w-0">
                     <div className={cn(
                       'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium mb-2',
@@ -418,28 +551,78 @@ export function PersonManagementPage() {
           )}
         </div>
 
-        {/* 分页 */}
-        {total > pageSize && (
-          <div className="flex items-center justify-between px-4 py-3 border-t">
+        {/* 分页 - 增强版 */}
+        {total > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 border-t">
             <div className="text-sm text-muted-foreground">
               共 {total} 条记录，第 {page} / {Math.ceil(total / pageSize)} 页
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {/* 首页 */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+                className="hidden sm:flex"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              
+              {/* 上一页 */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage(page - 1)}
                 disabled={page === 1}
               >
-                上一页
+                <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">上一页</span>
               </Button>
+
+              {/* 页码跳转 */}
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={jumpToPage}
+                  onChange={(e) => setJumpToPage(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleJumpToPage()}
+                  placeholder={page.toString()}
+                  className="w-16 h-8 text-center"
+                  min={1}
+                  max={Math.ceil(total / pageSize)}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleJumpToPage}
+                  disabled={!jumpToPage}
+                  className="h-8"
+                >
+                  跳转
+                </Button>
+              </div>
+              
+              {/* 下一页 */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage(page + 1)}
                 disabled={page >= Math.ceil(total / pageSize)}
               >
-                下一页
+                <span className="hidden sm:inline">下一页</span>
+                <ChevronRight className="h-4 w-4 sm:ml-1" />
+              </Button>
+
+              {/* 末页 */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(Math.ceil(total / pageSize))}
+                disabled={page >= Math.ceil(total / pageSize)}
+                className="hidden sm:flex"
+              >
+                <ChevronsRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -488,6 +671,28 @@ export function PersonManagementPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 批量删除确认对话框 */}
+      <AlertDialog open={batchDeleteDialogOpen} onOpenChange={setBatchDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认批量删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除选中的 {selectedPersons.size} 个人物信息吗？
+              此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBatchDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              批量删除
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

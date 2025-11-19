@@ -8,6 +8,8 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   CheckCircle2,
   XCircle,
   Ban,
@@ -43,6 +45,16 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -61,6 +73,7 @@ import {
   registerEmoji,
   banEmoji,
   getEmojiThumbnailUrl,
+  batchDeleteEmojis,
 } from '@/lib/emoji-api'
 
 export function EmojiManagementPage() {
@@ -69,7 +82,7 @@ export function EmojiManagementPage() {
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [pageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(20)
   const [search, setSearch] = useState('')
   const [registeredFilter, setRegisteredFilter] = useState<string>('all')
   const [bannedFilter, setBannedFilter] = useState<string>('all')
@@ -78,6 +91,9 @@ export function EmojiManagementPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false)
+  const [jumpToPage, setJumpToPage] = useState('')
 
   const { toast } = useToast()
 
@@ -214,6 +230,63 @@ export function EmojiManagementPage() {
       toast({
         title: '错误',
         description: message,
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // 切换选择
+  const toggleSelect = (id: number) => {
+    const newSelected = new Set(selectedIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedIds.size === emojiList.length && emojiList.length > 0) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(emojiList.map(e => e.id)))
+    }
+  }
+
+  // 批量删除
+  const handleBatchDelete = async () => {
+    try {
+      const result = await batchDeleteEmojis(Array.from(selectedIds))
+      toast({
+        title: '批量删除完成',
+        description: result.message,
+      })
+      setSelectedIds(new Set())
+      setBatchDeleteDialogOpen(false)
+      loadEmojiList()
+      loadStats()
+    } catch (error) {
+      toast({
+        title: '批量删除失败',
+        description: error instanceof Error ? error.message : '批量删除失败',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // 页面跳转
+  const handleJumpToPage = () => {
+    const targetPage = parseInt(jumpToPage)
+    const totalPages = Math.ceil(total / pageSize)
+    if (targetPage >= 1 && targetPage <= totalPages) {
+      setPage(targetPage)
+      setJumpToPage('')
+    } else {
+      toast({
+        title: '无效的页码',
+        description: `请输入1-${totalPages}之间的页码`,
         variant: 'destructive',
       })
     }
@@ -361,7 +434,55 @@ export function EmojiManagementPage() {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 border-t">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {selectedIds.size > 0 && (
+                <span>已选择 {selectedIds.size} 个表情包</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="emoji-page-size" className="text-sm whitespace-nowrap">每页显示</Label>
+              <Select
+                value={pageSize.toString()}
+                onValueChange={(value) => {
+                  setPageSize(parseInt(value))
+                  setPage(1)
+                  setSelectedIds(new Set())
+                }}
+              >
+                <SelectTrigger id="emoji-page-size" className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+              {selectedIds.size > 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    取消选择
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setBatchDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    批量删除
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t">
             <Button
               variant="outline"
               size="sm"
@@ -389,6 +510,13 @@ export function EmojiManagementPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={emojiList.length > 0 && selectedIds.size === emojiList.length}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="全选"
+                    />
+                  </TableHead>
                   <TableHead className="w-16">预览</TableHead>
                   <TableHead>描述</TableHead>
                   <TableHead>格式</TableHead>
@@ -401,13 +529,20 @@ export function EmojiManagementPage() {
               <TableBody>
                 {emojiList.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       暂无数据
                     </TableCell>
                   </TableRow>
                 ) : (
                   emojiList.map((emoji) => (
                     <TableRow key={emoji.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(emoji.id)}
+                          onCheckedChange={() => toggleSelect(emoji.id)}
+                          aria-label={`选择 ${emoji.description}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="w-20 h-20 bg-muted rounded flex items-center justify-center overflow-hidden">
                           <img
@@ -649,33 +784,79 @@ export function EmojiManagementPage() {
           </div>
 
           {/* 分页 */}
-          {total > pageSize && (
-            <div className="flex items-center justify-between mt-4">
+          {/* 分页 - 增强版 */}
+          {total > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
               <div className="text-sm text-muted-foreground">
                 显示 {(page - 1) * pageSize + 1} 到{' '}
                 {Math.min(page * pageSize, total)} 条，共 {total} 条
               </div>
               <div className="flex items-center gap-2">
+                {/* 首页 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  className="hidden sm:flex"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                
+                {/* 上一页 */}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                  上一页
+                  <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">上一页</span>
                 </Button>
-                <div className="text-sm">
-                  第 {page} / {Math.ceil(total / pageSize)} 页
+
+                {/* 页码跳转 */}
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={jumpToPage}
+                    onChange={(e) => setJumpToPage(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleJumpToPage()}
+                    placeholder={page.toString()}
+                    className="w-16 h-8 text-center"
+                    min={1}
+                    max={Math.ceil(total / pageSize)}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleJumpToPage}
+                    disabled={!jumpToPage}
+                    className="h-8"
+                  >
+                    跳转
+                  </Button>
                 </div>
+                
+                {/* 下一页 */}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setPage((p) => p + 1)}
                   disabled={page >= Math.ceil(total / pageSize)}
                 >
-                  下一页
-                  <ChevronRight className="h-4 w-4" />
+                  <span className="hidden sm:inline">下一页</span>
+                  <ChevronRight className="h-4 w-4 sm:ml-1" />
+                </Button>
+
+                {/* 末页 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(Math.ceil(total / pageSize))}
+                  disabled={page >= Math.ceil(total / pageSize)}
+                  className="hidden sm:flex"
+                >
+                  <ChevronsRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -703,6 +884,24 @@ export function EmojiManagementPage() {
 
         </div>
       </ScrollArea>
+
+      {/* 批量删除确认对话框 */}
+      <AlertDialog open={batchDeleteDialogOpen} onOpenChange={setBatchDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认批量删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              你确定要删除选中的 {selectedIds.size} 个表情包吗？此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBatchDelete}>
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 删除确认对话框 */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

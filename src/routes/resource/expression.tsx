@@ -1,4 +1,4 @@
-import { MessageSquare, Search, Edit, Trash2, Eye, Plus, Clock, Hash } from 'lucide-react'
+import { MessageSquare, Search, Edit, Trash2, Eye, Plus, Clock, Hash, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -32,22 +32,33 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import type { Expression, ExpressionCreateRequest, ExpressionUpdateRequest } from '@/types/expression'
-import { getExpressionList, getExpressionDetail, createExpression, updateExpression, deleteExpression, getExpressionStats } from '@/lib/expression-api'
+import { getExpressionList, getExpressionDetail, createExpression, updateExpression, deleteExpression, batchDeleteExpressions, getExpressionStats } from '@/lib/expression-api'
 
 export function ExpressionManagementPage() {
   const [expressions, setExpressions] = useState<Expression[]>([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(20)
   const [search, setSearch] = useState('')
   const [selectedExpression, setSelectedExpression] = useState<Expression | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [deleteConfirmExpression, setDeleteConfirmExpression] = useState<Expression | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [isBatchDeleteDialogOpen, setIsBatchDeleteDialogOpen] = useState(false)
+  const [jumpToPage, setJumpToPage] = useState('')
   const [stats, setStats] = useState({ total: 0, recent_7days: 0, chat_count: 0, top_chats: {} as Record<string, number> })
   const { toast } = useToast()
 
@@ -131,6 +142,63 @@ export function ExpressionManagementPage() {
     }
   }
 
+  // 切换单个选择
+  const toggleSelect = (id: number) => {
+    const newSelected = new Set(selectedIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedIds.size === expressions.length && expressions.length > 0) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(expressions.map(e => e.id)))
+    }
+  }
+
+  // 批量删除
+  const handleBatchDelete = async () => {
+    try {
+      await batchDeleteExpressions(Array.from(selectedIds))
+      toast({
+        title: '批量删除成功',
+        description: `已删除 ${selectedIds.size} 个表达方式`,
+      })
+      setSelectedIds(new Set())
+      setIsBatchDeleteDialogOpen(false)
+      loadExpressions()
+      loadStats()
+    } catch (error) {
+      toast({
+        title: '批量删除失败',
+        description: error instanceof Error ? error.message : '无法批量删除表达方式',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // 页面跳转
+  const handleJumpToPage = () => {
+    const targetPage = parseInt(jumpToPage)
+    const totalPages = Math.ceil(total / pageSize)
+    if (targetPage >= 1 && targetPage <= totalPages) {
+      setPage(targetPage)
+      setJumpToPage('')
+    } else {
+      toast({
+        title: '无效的页码',
+        description: `请输入1-${totalPages}之间的页码`,
+        variant: 'destructive',
+      })
+    }
+  }
+
   // 格式化时间
   const formatTime = (timestamp: number | null) => {
     if (!timestamp) return '-'
@@ -177,18 +245,69 @@ export function ExpressionManagementPage() {
         </div>
       </div>
 
-      {/* 搜索 */}
+      {/* 搜索和批量操作 */}
       <div className="rounded-lg border bg-card p-4">
         <Label htmlFor="search">搜索</Label>
-        <div className="relative mt-1.5">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            id="search"
-            placeholder="搜索情境、风格或上下文..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex flex-col sm:flex-row gap-2 mt-1.5">
+          <div className="flex-1 relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="search"
+              placeholder="搜索情境、风格或上下文..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
+
+        {/* 批量操作工具栏 */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 pt-4 border-t">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {selectedIds.size > 0 && (
+              <span>已选择 {selectedIds.size} 个表达方式</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="page-size" className="text-sm whitespace-nowrap">每页显示</Label>
+            <Select
+              value={pageSize.toString()}
+              onValueChange={(value) => {
+                setPageSize(parseInt(value))
+                setPage(1)
+                setSelectedIds(new Set())
+              }}
+            >
+              <SelectTrigger id="page-size" className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+            {selectedIds.size > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  取消选择
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setIsBatchDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  批量删除
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -199,6 +318,12 @@ export function ExpressionManagementPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedIds.size === expressions.length && expressions.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead>情境</TableHead>
                 <TableHead>风格</TableHead>
                 <TableHead>聊天ID</TableHead>
@@ -209,19 +334,25 @@ export function ExpressionManagementPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     加载中...
                   </TableCell>
                 </TableRow>
               ) : expressions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     暂无数据
                   </TableCell>
                 </TableRow>
               ) : (
                 expressions.map((expression) => (
                   <TableRow key={expression.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(expression.id)}
+                        onCheckedChange={() => toggleSelect(expression.id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium max-w-xs truncate">
                       {expression.situation}
                     </TableCell>
@@ -275,19 +406,26 @@ export function ExpressionManagementPage() {
           ) : (
             expressions.map((expression) => (
                   <div key={expression.id} className="rounded-lg border bg-card p-4 space-y-3 overflow-hidden">
-                    {/* 情境和风格 */}
-                    <div className="min-w-0 w-full overflow-hidden space-y-2">
-                      <div>
-                        <div className="text-xs text-muted-foreground mb-1">情境</div>
-                        <h3 className="font-semibold text-sm line-clamp-2 w-full break-all" title={expression.situation}>
-                          {expression.situation}
-                        </h3>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground mb-1">风格</div>
-                        <p className="text-sm line-clamp-2 w-full break-all" title={expression.style}>
-                          {expression.style}
-                        </p>
+                    {/* 复选框和情境 */}
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        checked={selectedIds.has(expression.id)}
+                        onCheckedChange={() => toggleSelect(expression.id)}
+                        className="mt-1"
+                      />
+                      <div className="min-w-0 flex-1 overflow-hidden space-y-2">
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">情境</div>
+                          <h3 className="font-semibold text-sm line-clamp-2 w-full break-all" title={expression.situation}>
+                            {expression.situation}
+                          </h3>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">风格</div>
+                          <p className="text-sm line-clamp-2 w-full break-all" title={expression.style}>
+                            {expression.style}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
@@ -338,28 +476,78 @@ export function ExpressionManagementPage() {
               )}
         </div>
 
-        {/* 分页 */}
-        {total > pageSize && (
-          <div className="flex items-center justify-between px-4 py-3 border-t">
+        {/* 分页 - 增强版 */}
+        {total > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 border-t">
             <div className="text-sm text-muted-foreground">
               共 {total} 条记录，第 {page} / {Math.ceil(total / pageSize)} 页
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {/* 首页 */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+                className="hidden sm:flex"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              
+              {/* 上一页 */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage(page - 1)}
                 disabled={page === 1}
               >
-                上一页
+                <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">上一页</span>
               </Button>
+
+              {/* 页码跳转 */}
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={jumpToPage}
+                  onChange={(e) => setJumpToPage(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleJumpToPage()}
+                  placeholder={page.toString()}
+                  className="w-16 h-8 text-center"
+                  min={1}
+                  max={Math.ceil(total / pageSize)}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleJumpToPage}
+                  disabled={!jumpToPage}
+                  className="h-8"
+                >
+                  跳转
+                </Button>
+              </div>
+              
+              {/* 下一页 */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage(page + 1)}
                 disabled={page >= Math.ceil(total / pageSize)}
               >
-                下一页
+                <span className="hidden sm:inline">下一页</span>
+                <ChevronRight className="h-4 w-4 sm:ml-1" />
+              </Button>
+
+              {/* 末页 */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(Math.ceil(total / pageSize))}
+                disabled={page >= Math.ceil(total / pageSize)}
+                className="hidden sm:flex"
+              >
+                <ChevronsRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -423,6 +611,14 @@ export function ExpressionManagementPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 批量删除确认对话框 */}
+      <BatchDeleteConfirmDialog
+        open={isBatchDeleteDialogOpen}
+        onOpenChange={setIsBatchDeleteDialogOpen}
+        onConfirm={handleBatchDelete}
+        count={selectedIds.size}
+      />
     </div>
   )
 }
@@ -783,5 +979,37 @@ function ExpressionEditDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// 批量删除确认对话框
+function BatchDeleteConfirmDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  count,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+  count: number
+}) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>确认批量删除</AlertDialogTitle>
+          <AlertDialogDescription>
+            您即将删除 {count} 个表达方式，此操作无法撤销。确定要继续吗？
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            确认删除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

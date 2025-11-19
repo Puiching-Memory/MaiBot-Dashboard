@@ -50,9 +50,9 @@ interface APIProvider {
   base_url: string
   api_key: string
   client_type: string
-  max_retry: number
-  timeout: number
-  retry_interval: number
+  max_retry: number | null
+  timeout: number | null
+  retry_interval: number | null
 }
 
 export function ModelProviderConfigPage() {
@@ -275,19 +275,42 @@ export function ModelProviderConfigPage() {
   const handleSaveEdit = () => {
     if (!editingProvider) return
 
+    // 填充空值的默认值
+    const providerToSave = {
+      ...editingProvider,
+      max_retry: editingProvider.max_retry ?? 2,
+      timeout: editingProvider.timeout ?? 30,
+      retry_interval: editingProvider.retry_interval ?? 10,
+    }
+
     if (editingIndex !== null) {
       // 更新现有提供商
       const newProviders = [...providers]
-      newProviders[editingIndex] = editingProvider
+      newProviders[editingIndex] = providerToSave
       setProviders(newProviders)
     } else {
       // 添加新提供商
-      setProviders([...providers, editingProvider])
+      setProviders([...providers, providerToSave])
     }
 
     setEditDialogOpen(false)
     setEditingProvider(null)
     setEditingIndex(null)
+  }
+
+  // 处理编辑对话框关闭
+  const handleEditDialogClose = (open: boolean) => {
+    if (!open && editingProvider) {
+      // 关闭时填充默认值
+      const updatedProvider = {
+        ...editingProvider,
+        max_retry: editingProvider.max_retry ?? 2,
+        timeout: editingProvider.timeout ?? 30,
+        retry_interval: editingProvider.retry_interval ?? 10,
+      }
+      setEditingProvider(updatedProvider)
+    }
+    setEditDialogOpen(open)
   }
 
   // 打开删除确认对话框
@@ -600,7 +623,7 @@ export function ModelProviderConfigPage() {
       </ScrollArea>
 
       {/* 编辑对话框 */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      <Dialog open={editDialogOpen} onOpenChange={handleEditDialogClose}>
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -707,12 +730,14 @@ export function ModelProviderConfigPage() {
                   id="max_retry"
                   type="number"
                   min="0"
-                  value={editingProvider?.max_retry || 2}
-                  onChange={(e) =>
+                  value={editingProvider?.max_retry ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? null : parseInt(e.target.value)
                     setEditingProvider((prev) =>
-                      prev ? { ...prev, max_retry: parseInt(e.target.value) } : null
+                      prev ? { ...prev, max_retry: val } : null
                     )
-                  }
+                  }}
+                  placeholder="默认: 2"
                 />
               </div>
 
@@ -722,12 +747,14 @@ export function ModelProviderConfigPage() {
                   id="timeout"
                   type="number"
                   min="1"
-                  value={editingProvider?.timeout || 30}
-                  onChange={(e) =>
+                  value={editingProvider?.timeout ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? null : parseInt(e.target.value)
                     setEditingProvider((prev) =>
-                      prev ? { ...prev, timeout: parseInt(e.target.value) } : null
+                      prev ? { ...prev, timeout: val } : null
                     )
-                  }
+                  }}
+                  placeholder="默认: 30"
                 />
               </div>
 
@@ -737,14 +764,16 @@ export function ModelProviderConfigPage() {
                   id="retry_interval"
                   type="number"
                   min="1"
-                  value={editingProvider?.retry_interval || 10}
-                  onChange={(e) =>
+                  value={editingProvider?.retry_interval ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? null : parseInt(e.target.value)
                     setEditingProvider((prev) =>
                       prev
-                        ? { ...prev, retry_interval: parseInt(e.target.value) }
+                        ? { ...prev, retry_interval: val }
                         : null
                     )
-                  }
+                  }}
+                  placeholder="默认: 10"
                 />
               </div>
             </div>

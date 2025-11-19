@@ -153,3 +153,27 @@ export function getEmojiThumbnailUrl(id: number): string {
   const token = localStorage.getItem('access-token')
   return `${API_BASE}/${id}/thumbnail?token=${encodeURIComponent(token || '')}`
 }
+
+/**
+ * 批量删除表情包
+ */
+export async function batchDeleteEmojis(emojiIds: number[]): Promise<{
+  success: boolean
+  message: string
+  deleted_count: number
+  failed_count: number
+  failed_ids: number[]
+}> {
+  const response = await fetchWithAuth(`${API_BASE}/batch/delete`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ emoji_ids: emojiIds }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '批量删除失败')
+  }
+
+  return response.json()
+}

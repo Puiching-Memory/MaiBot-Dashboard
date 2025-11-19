@@ -112,3 +112,27 @@ export async function getPersonStats(): Promise<PersonStatsResponse> {
   
   return response.json()
 }
+
+/**
+ * 批量删除人物信息
+ */
+export async function batchDeletePersons(personIds: string[]): Promise<{
+  success: boolean
+  message: string
+  deleted_count: number
+  failed_count: number
+  failed_ids: string[]
+}> {
+  const response = await fetchWithAuth(`${API_BASE}/batch/delete`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ person_ids: personIds }),
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '批量删除失败')
+  }
+  
+  return response.json()
+}

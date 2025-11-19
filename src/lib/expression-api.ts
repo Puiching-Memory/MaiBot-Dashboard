@@ -118,6 +118,24 @@ export async function deleteExpression(expressionId: number): Promise<Expression
 }
 
 /**
+ * 批量删除表达方式
+ */
+export async function batchDeleteExpressions(expressionIds: number[]): Promise<ExpressionDeleteResponse> {
+  const response = await fetchWithAuth(`${API_BASE}/batch/delete`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ ids: expressionIds }),
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '批量删除表达方式失败')
+  }
+  
+  return response.json()
+}
+
+/**
  * 获取表达方式统计数据
  */
 export async function getExpressionStats(): Promise<ExpressionStatsResponse> {

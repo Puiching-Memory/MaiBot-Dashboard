@@ -54,8 +54,8 @@ interface ModelInfo {
   model_identifier: string
   name: string
   api_provider: string
-  price_in: number
-  price_out: number
+  price_in: number | null
+  price_out: number | null
   force_stream_mode?: boolean
   extra_params?: Record<string, unknown>
 }
@@ -333,12 +333,19 @@ export function ModelConfigPage() {
   const handleSaveEdit = () => {
     if (!editingModel) return
 
+    // 填充空值的默认值
+    const modelToSave = {
+      ...editingModel,
+      price_in: editingModel.price_in ?? 0,
+      price_out: editingModel.price_out ?? 0,
+    }
+
     let newModels: ModelInfo[]
     if (editingIndex !== null) {
       newModels = [...models]
-      newModels[editingIndex] = editingModel
+      newModels[editingIndex] = modelToSave
     } else {
-      newModels = [...models, editingModel]
+      newModels = [...models, modelToSave]
     }
     
     setModels(newModels)
@@ -348,6 +355,20 @@ export function ModelConfigPage() {
     setEditDialogOpen(false)
     setEditingModel(null)
     setEditingIndex(null)
+  }
+
+  // 处理编辑对话框关闭
+  const handleEditDialogClose = (open: boolean) => {
+    if (!open && editingModel) {
+      // 关闭时填充默认值
+      const updatedModel = {
+        ...editingModel,
+        price_in: editingModel.price_in ?? 0,
+        price_out: editingModel.price_out ?? 0,
+      }
+      setEditingModel(updatedModel)
+    }
+    setEditDialogOpen(open)
   }
 
   // 打开删除确认对话框
@@ -866,7 +887,7 @@ export function ModelConfigPage() {
       </Tabs>
 
       {/* 编辑模型对话框 */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      <Dialog open={editDialogOpen} onOpenChange={handleEditDialogClose}>
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -941,14 +962,16 @@ export function ModelConfigPage() {
                   type="number"
                   step="0.1"
                   min="0"
-                  value={editingModel?.price_in || 0}
-                  onChange={(e) =>
+                  value={editingModel?.price_in ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? null : parseFloat(e.target.value)
                     setEditingModel((prev) =>
                       prev
-                        ? { ...prev, price_in: parseFloat(e.target.value) }
+                        ? { ...prev, price_in: val }
                         : null
                     )
-                  }
+                  }}
+                  placeholder="默认: 0"
                 />
               </div>
 
@@ -959,14 +982,16 @@ export function ModelConfigPage() {
                   type="number"
                   step="0.1"
                   min="0"
-                  value={editingModel?.price_out || 0}
-                  onChange={(e) =>
+                  value={editingModel?.price_out ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? null : parseFloat(e.target.value)
                     setEditingModel((prev) =>
                       prev
-                        ? { ...prev, price_out: parseFloat(e.target.value) }
+                        ? { ...prev, price_out: val }
                         : null
                     )
-                  }
+                  }}
+                  placeholder="默认: 0"
                 />
               </div>
             </div>
