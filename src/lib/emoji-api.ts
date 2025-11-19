@@ -145,3 +145,11 @@ export async function banEmoji(id: number): Promise<EmojiUpdateResponse> {
 
   return response.json()
 }
+
+/**
+ * 获取表情包缩略图 URL（带 token）
+ */
+export function getEmojiThumbnailUrl(id: number): string {
+  const token = localStorage.getItem('access-token')
+  return `${API_BASE}/${id}/thumbnail?token=${encodeURIComponent(token || '')}`
+}

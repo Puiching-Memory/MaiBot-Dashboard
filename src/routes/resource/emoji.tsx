@@ -41,6 +41,8 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Table,
   TableBody,
@@ -59,6 +61,7 @@ import {
   deleteEmoji,
   registerEmoji,
   banEmoji,
+  getEmojiThumbnailUrl,
 } from '@/lib/emoji-api'
 
 export function EmojiManagementPage() {
@@ -221,14 +224,17 @@ export function EmojiManagementPage() {
   const formatOptions = stats?.formats ? Object.keys(stats.formats) : []
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+    <div className="h-[calc(100vh-4rem)] flex flex-col p-4 sm:p-6">
       {/* 页面标题 */}
-      <div>
+      <div className="mb-4 sm:mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold">表情包管理</h1>
         <p className="text-sm text-muted-foreground mt-1">
           管理麦麦的表情包资源
         </p>
       </div>
+
+      <ScrollArea className="flex-1">
+        <div className="space-y-4 sm:space-y-6 pr-4">
 
       {/* 统计卡片 */}
       {stats && (
@@ -386,6 +392,7 @@ export function EmojiManagementPage() {
                   <TableHead className="w-16">预览</TableHead>
                   <TableHead>描述</TableHead>
                   <TableHead>格式</TableHead>
+                  <TableHead>情绪标签</TableHead>
                   <TableHead className="text-center">状态</TableHead>
                   <TableHead className="text-right">使用次数</TableHead>
                   <TableHead className="text-right">操作</TableHead>
@@ -394,7 +401,7 @@ export function EmojiManagementPage() {
               <TableBody>
                 {emojiList.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       暂无数据
                     </TableCell>
                   </TableRow>
@@ -402,8 +409,21 @@ export function EmojiManagementPage() {
                   emojiList.map((emoji) => (
                     <TableRow key={emoji.id}>
                       <TableCell>
-                        <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
-                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                        <div className="w-12 h-12 bg-muted rounded flex items-center justify-center overflow-hidden">
+                          <img
+                            src={getEmojiThumbnailUrl(emoji.id)}
+                            alt={emoji.description || '表情包'}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // 图片加载失败时显示默认图标
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                              const parent = target.parentElement
+                              if (parent) {
+                                parent.innerHTML = '<svg class="h-6 w-6 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>'
+                              }
+                            }}
+                          />
                         </div>
                       </TableCell>
                       <TableCell>
@@ -416,6 +436,9 @@ export function EmojiManagementPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{emoji.format.toUpperCase()}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <EmotionTags emotions={emoji.emotion} />
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2 justify-center">
@@ -541,6 +564,9 @@ export function EmojiManagementPage() {
           loadStats()
         }}
       />
+
+        </div>
+      </ScrollArea>
 
       {/* 删除确认对话框 */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -718,7 +744,7 @@ function EmojiEditDialog({
     try {
       setSaving(true)
       const emotionArray = emotionInput
-        .split(',')
+        .split(/[,,]/)
         .map((s) => s.trim())
         .filter(Boolean)
 
@@ -777,18 +803,16 @@ function EmojiEditDialog({
               className="mt-1"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              输入多个标签时使用逗号分隔
+              输入多个标签时使用逗号分隔（支持中英文逗号）
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="is_registered"
                 checked={isRegistered}
-                onChange={(e) => setIsRegistered(e.target.checked)}
-                className="rounded border-gray-300"
+                onCheckedChange={setIsRegistered}
               />
               <Label htmlFor="is_registered" className="cursor-pointer">
                 已注册
@@ -796,12 +820,10 @@ function EmojiEditDialog({
             </div>
 
             <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="is_banned"
                 checked={isBanned}
-                onChange={(e) => setIsBanned(e.target.checked)}
-                className="rounded border-gray-300"
+                onCheckedChange={setIsBanned}
               />
               <Label htmlFor="is_banned" className="cursor-pointer">
                 已封禁
@@ -819,5 +841,46 @@ function EmojiEditDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// 情绪标签组件
+function EmotionTags({ emotions }: { emotions: string[] | null | undefined }) {
+  if (!emotions || emotions.length === 0) {
+    return <span className="text-xs text-muted-foreground">-</span>
+  }
+
+  // 截断文本辅助函数
+  const truncateText = (text: string, maxLength: number = 6) => {
+    if (text.length <= maxLength) return text
+    return text.slice(0, maxLength) + '...'
+  }
+
+  // 最多显示3个标签
+  const displayEmotions = emotions.slice(0, 3)
+  const remainingCount = emotions.length - 3
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {displayEmotions.map((emotion, index) => (
+        <Badge 
+          key={index} 
+          variant="secondary"
+          className="text-xs"
+          title={emotion} // 悬停显示完整文本
+        >
+          {truncateText(emotion)}
+        </Badge>
+      ))}
+      {remainingCount > 0 && (
+        <Badge 
+          variant="outline" 
+          className="text-xs"
+          title={`还有 ${remainingCount} 个标签: ${emotions.slice(3).join(', ')}`}
+        >
+          +{remainingCount}
+        </Badge>
+      )}
+    </div>
   )
 }
