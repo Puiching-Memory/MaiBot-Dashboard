@@ -3,6 +3,7 @@ import axios from 'axios'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   ChartContainer,
   ChartTooltip,
@@ -85,6 +86,28 @@ export function IndexPage() {
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState(24) // 默认24小时
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [hitokoto, setHitokoto] = useState<{ hitokoto: string; from: string } | null>(null)
+  const [hitokotoLoading, setHitokotoLoading] = useState(true)
+
+  // 获取一言
+  const fetchHitokoto = useCallback(async () => {
+    try {
+      setHitokotoLoading(true)
+      const response = await axios.get('https://v1.hitokoto.cn/?c=a&c=b&c=c&c=d&c=h&c=i&c=k')
+      setHitokoto({
+        hitokoto: response.data.hitokoto,
+        from: response.data.from || response.data.from_who || '未知'
+      })
+    } catch (error) {
+      console.error('获取一言失败:', error)
+      setHitokoto({
+        hitokoto: '人生就像一盒巧克力，你永远不知道下一颗是什么味道。',
+        from: '阿甘正传'
+      })
+    } finally {
+      setHitokotoLoading(false)
+    }
+  }, [])
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -102,7 +125,8 @@ export function IndexPage() {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [fetchDashboardData])
+    fetchHitokoto()
+  }, [fetchDashboardData, fetchHitokoto])
 
   // 自动刷新
   useEffect(() => {
@@ -613,6 +637,30 @@ export function IndexPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 一言 */}
+      <Card className="border-2 border-primary/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">每日一言</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {hitokotoLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-3/4" />
+              <Skeleton className="h-4 w-1/4" />
+            </div>
+          ) : hitokoto ? (
+            <div className="space-y-2">
+              <p className="text-lg font-medium leading-relaxed italic">
+                "{hitokoto.hitokoto}"
+              </p>
+              <p className="text-sm text-muted-foreground text-right">
+                —— {hitokoto.from}
+              </p>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
     </ScrollArea>
   )

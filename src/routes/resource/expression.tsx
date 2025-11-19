@@ -138,23 +138,28 @@ export function ExpressionManagementPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+    <div className="h-[calc(100vh-4rem)] flex flex-col p-4 sm:p-6">
       {/* 页面标题 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <MessageSquare className="h-8 w-8" strokeWidth={2} />
-            表达方式管理
-          </h1>
-          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
-            管理麦麦的表达方式和话术模板
-          </p>
+      <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <MessageSquare className="h-8 w-8" strokeWidth={2} />
+              表达方式管理
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+              管理麦麦的表达方式和话术模板
+            </p>
+          </div>
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            新增表达方式
+          </Button>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          新增表达方式
-        </Button>
       </div>
+
+      <ScrollArea className="flex-1">
+        <div className="space-y-4 sm:space-y-6 pr-4">
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -189,7 +194,8 @@ export function ExpressionManagementPage() {
 
       {/* 表达方式列表 */}
       <div className="rounded-lg border bg-card">
-        <ScrollArea className="h-[calc(100vh-500px)]">
+        {/* 桌面端表格视图 */}
+        <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -254,7 +260,83 @@ export function ExpressionManagementPage() {
               )}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
+
+        {/* 移动端卡片视图 */}
+        <div className="md:hidden space-y-3 p-4">
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              加载中...
+            </div>
+          ) : expressions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              暂无数据
+            </div>
+          ) : (
+            expressions.map((expression) => (
+                  <div key={expression.id} className="rounded-lg border bg-card p-4 space-y-3 overflow-hidden">
+                    {/* 情境和风格 */}
+                    <div className="min-w-0 w-full overflow-hidden space-y-2">
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">情境</div>
+                        <h3 className="font-semibold text-sm line-clamp-2 w-full break-all" title={expression.situation}>
+                          {expression.situation}
+                        </h3>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">风格</div>
+                        <p className="text-sm line-clamp-2 w-full break-all" title={expression.style}>
+                          {expression.style}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 聊天ID和时间 */}
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">聊天ID</div>
+                        <p className="font-mono text-xs truncate">{expression.chat_id}</p>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">最后活跃</div>
+                        <p className="text-xs">{formatTime(expression.last_active_time)}</p>
+                      </div>
+                    </div>
+
+                    {/* 操作按钮 */}
+                    <div className="flex flex-wrap gap-1 pt-2 border-t overflow-hidden">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetail(expression)}
+                        className="text-xs px-2 py-1 h-auto flex-shrink-0"
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        查看
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(expression)}
+                        className="text-xs px-2 py-1 h-auto flex-shrink-0"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        编辑
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteConfirmExpression(expression)}
+                        className="text-xs px-2 py-1 h-auto flex-shrink-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        删除
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+        </div>
 
         {/* 分页 */}
         {total > pageSize && (
@@ -283,6 +365,9 @@ export function ExpressionManagementPage() {
           </div>
         )}
       </div>
+
+        </div>
+      </ScrollArea>
 
       {/* 详情对话框 */}
       <ExpressionDetailDialog

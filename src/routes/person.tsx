@@ -154,19 +154,24 @@ export function PersonManagementPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+    <div className="h-[calc(100vh-4rem)] flex flex-col p-4 sm:p-6">
       {/* 页面标题 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <Users className="h-8 w-8" strokeWidth={2} />
-            人物信息管理
-          </h1>
-          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
-            管理麦麦认识的所有人物信息
-          </p>
+      <div className="mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <Users className="h-8 w-8" strokeWidth={2} />
+              人物信息管理
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+              管理麦麦认识的所有人物信息
+            </p>
+          </div>
         </div>
       </div>
+
+      <ScrollArea className="flex-1">
+        <div className="space-y-4 sm:space-y-6 pr-4">
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -246,7 +251,8 @@ export function PersonManagementPage() {
 
       {/* 人物列表 */}
       <div className="rounded-lg border bg-card">
-        <ScrollArea className="h-[calc(100vh-500px)]">
+        {/* 桌面端表格视图 */}
+        <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -324,7 +330,93 @@ export function PersonManagementPage() {
               )}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
+
+        {/* 移动端卡片视图 */}
+        <div className="md:hidden space-y-3 p-4">
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              加载中...
+            </div>
+          ) : persons.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              暂无数据
+            </div>
+          ) : (
+            persons.map((person) => (
+              <div key={person.id} className="rounded-lg border bg-card p-4 space-y-3 overflow-hidden">
+                {/* 状态和名称 */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className={cn(
+                      'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium mb-2',
+                      person.is_known
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                    )}>
+                      {person.is_known ? '已认识' : '未认识'}
+                    </div>
+                    <h3 className="font-semibold text-sm line-clamp-1 w-full break-all">
+                      {person.person_name || <span className="text-muted-foreground">未命名</span>}
+                    </h3>
+                    {person.nickname && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-1 w-full break-all">
+                        昵称: {person.nickname}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 平台和用户信息 */}
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">平台</div>
+                    <p className="font-medium text-xs">{person.platform}</p>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">用户ID</div>
+                    <p className="font-mono text-xs truncate" title={person.user_id}>{person.user_id}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-xs text-muted-foreground mb-1">最后更新</div>
+                    <p className="text-xs">{formatTime(person.last_know)}</p>
+                  </div>
+                </div>
+
+                {/* 操作按钮 */}
+                <div className="flex flex-wrap gap-1 pt-2 border-t overflow-hidden">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewDetail(person)}
+                    className="text-xs px-2 py-1 h-auto flex-shrink-0"
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    查看
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(person)}
+                    className="text-xs px-2 py-1 h-auto flex-shrink-0"
+                  >
+                    <Edit className="h-3 w-3 mr-1" />
+                    编辑
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteConfirmPerson(person)}
+                    className="text-xs px-2 py-1 h-auto flex-shrink-0 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    删除
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
 
         {/* 分页 */}
         {total > pageSize && (
@@ -353,6 +445,9 @@ export function PersonManagementPage() {
           </div>
         )}
       </div>
+
+        </div>
+      </ScrollArea>
 
       {/* 详情对话框 */}
       <PersonDetailDialog
