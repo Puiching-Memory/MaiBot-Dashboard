@@ -599,7 +599,7 @@ export function EmojiManagementPage() {
                       <TableCell>
                         <div className="flex items-center justify-end gap-1 flex-wrap">
                           <Button
-                            variant="ghost"
+                            variant="default"
                             size="sm"
                             onClick={() => handleViewDetail(emoji)}
                           >
@@ -607,7 +607,7 @@ export function EmojiManagementPage() {
                             详情
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="default"
                             size="sm"
                             onClick={() => handleEdit(emoji)}
                           >
@@ -616,10 +616,9 @@ export function EmojiManagementPage() {
                           </Button>
                           {!emoji.is_registered && (
                             <Button
-                              variant="ghost"
                               size="sm"
                               onClick={() => handleRegister(emoji)}
-                              className="text-green-600 hover:text-green-700"
+                              className="bg-green-600 hover:bg-green-700 text-white"
                             >
                               <CheckCircle2 className="h-4 w-4 mr-1" />
                               注册
@@ -627,20 +626,18 @@ export function EmojiManagementPage() {
                           )}
                           {!emoji.is_banned && (
                             <Button
-                              variant="ghost"
                               size="sm"
                               onClick={() => handleBan(emoji)}
-                              className="text-orange-600 hover:text-orange-700"
+                              className="bg-orange-600 hover:bg-orange-700 text-white"
                             >
                               <Ban className="h-4 w-4 mr-1" />
                               封禁
                             </Button>
                           )}
                           <Button
-                            variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(emoji)}
-                            className="text-red-600 hover:text-red-700"
+                            className="bg-red-600 hover:bg-red-700 text-white"
                           >
                             <Trash2 className="h-4 w-4 mr-1" />
                             删除
@@ -729,7 +726,7 @@ export function EmojiManagementPage() {
                   {/* 操作按钮 */}
                   <div className="flex flex-wrap gap-1 pt-2 border-t overflow-hidden">
                     <Button
-                      variant="outline"
+                      variant="default"
                       size="sm"
                       onClick={() => handleViewDetail(emoji)}
                       className="text-xs px-2 py-1 h-auto flex-shrink-0"
@@ -738,7 +735,7 @@ export function EmojiManagementPage() {
                       详情
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="default"
                       size="sm"
                       onClick={() => handleEdit(emoji)}
                       className="text-xs px-2 py-1 h-auto flex-shrink-0"
@@ -748,10 +745,9 @@ export function EmojiManagementPage() {
                     </Button>
                     {!emoji.is_registered && (
                       <Button
-                        variant="outline"
                         size="sm"
                         onClick={() => handleRegister(emoji)}
-                        className="text-xs px-2 py-1 h-auto flex-shrink-0 text-green-600 hover:text-green-700"
+                        className="text-xs px-2 py-1 h-auto flex-shrink-0 bg-green-600 hover:bg-green-700 text-white"
                       >
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         注册
@@ -759,20 +755,18 @@ export function EmojiManagementPage() {
                     )}
                     {!emoji.is_banned && (
                       <Button
-                        variant="outline"
                         size="sm"
                         onClick={() => handleBan(emoji)}
-                        className="text-xs px-2 py-1 h-auto flex-shrink-0 text-orange-600 hover:text-orange-700"
+                        className="text-xs px-2 py-1 h-auto flex-shrink-0 bg-orange-600 hover:bg-orange-700 text-white"
                       >
                         <Ban className="h-3 w-3 mr-1" />
                         封禁
                       </Button>
                     )}
                     <Button
-                      variant="outline"
                       size="sm"
                       onClick={() => handleDelete(emoji)}
-                      className="text-xs px-2 py-1 h-auto flex-shrink-0 text-red-600 hover:text-red-700"
+                      className="text-xs px-2 py-1 h-auto flex-shrink-0 bg-red-600 hover:bg-red-700 text-white"
                     >
                       <Trash2 className="h-3 w-3 mr-1" />
                       删除

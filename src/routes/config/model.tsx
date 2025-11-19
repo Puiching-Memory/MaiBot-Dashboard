@@ -42,7 +42,7 @@ import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Pencil, Trash2, Save, Search, Info, Power } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, Search, Info, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { getModelConfig, updateModelConfig, updateModelConfigSection } from '@/lib/config-api'
 import { restartMaiBot } from '@/lib/system-api'
 import { useToast } from '@/hooks/use-toast'
@@ -99,6 +99,9 @@ export function ModelConfigPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedModels, setSelectedModels] = useState<Set<number>>(new Set())
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [jumpToPage, setJumpToPage] = useState('')
   const { toast} = useToast()
 
   // 用于防抖的定时器
@@ -470,6 +473,22 @@ export function ModelConfigPage() {
     )
   })
 
+  // 分页逻辑
+  const totalPages = Math.ceil(filteredModels.length / pageSize)
+  const paginatedModels = filteredModels.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  )
+
+  // 页码跳转
+  const handleJumpToPage = () => {
+    const targetPage = parseInt(jumpToPage)
+    if (targetPage >= 1 && targetPage <= totalPages) {
+      setPage(targetPage)
+      setJumpToPage('')
+    }
+  }
+
   // 检查模型是否被任务使用
   const isModelUsed = (modelName: string): boolean => {
     if (!taskConfig) return false
@@ -614,15 +633,16 @@ export function ModelConfigPage() {
 
           {/* 模型列表 - 移动端卡片视图 */}
           <div className="md:hidden space-y-3">
-            {filteredModels.length === 0 ? (
+            {paginatedModels.length === 0 ? (
               <div className="text-center text-muted-foreground py-8 rounded-lg border bg-card">
                 {searchQuery ? '未找到匹配的模型' : '暂无模型配置'}
               </div>
             ) : (
-              filteredModels.map((model, index) => {
+              paginatedModels.map((model, displayIndex) => {
+                const actualIndex = models.findIndex(m => m === model)
                 const used = isModelUsed(model.name)
                 return (
-                  <div key={index} className="rounded-lg border bg-card p-4 space-y-3">
+                  <div key={displayIndex} className="rounded-lg border bg-card p-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -640,18 +660,20 @@ export function ModelConfigPage() {
                       </div>
                       <div className="flex gap-1 flex-shrink-0">
                         <Button
-                          variant="ghost"
+                          variant="default"
                           size="sm"
-                          onClick={() => openEditDialog(model, index)}
+                          onClick={() => openEditDialog(model, actualIndex)}
                         >
-                          <Pencil className="h-4 w-4" strokeWidth={2} fill="none" />
+                          <Pencil className="h-4 w-4 mr-1" strokeWidth={2} fill="none" />
+                          编辑
                         </Button>
                         <Button
-                          variant="ghost"
                           size="sm"
-                          onClick={() => openDeleteDialog(index)}
+                          onClick={() => openDeleteDialog(actualIndex)}
+                          className="bg-red-600 hover:bg-red-700 text-white"
                         >
-                          <Trash2 className="h-4 w-4" strokeWidth={2} fill="none" />
+                          <Trash2 className="h-4 w-4 mr-1" strokeWidth={2} fill="none" />
+                          删除
                         </Button>
                       </div>
                     </div>
@@ -701,14 +723,14 @@ export function ModelConfigPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredModels.length === 0 ? (
+                {paginatedModels.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       {searchQuery ? '未找到匹配的模型' : '暂无模型配置'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredModels.map((model, displayIndex) => {
+                  paginatedModels.map((model, displayIndex) => {
                     const actualIndex = models.findIndex(m => m === model)
                     const used = isModelUsed(model.name)
                     return (
@@ -740,18 +762,20 @@ export function ModelConfigPage() {
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
-                              variant="ghost"
+                              variant="default"
                               size="sm"
                               onClick={() => openEditDialog(model, actualIndex)}
                             >
-                              <Pencil className="h-4 w-4" strokeWidth={2} fill="none" />
+                              <Pencil className="h-4 w-4 mr-1" strokeWidth={2} fill="none" />
+                              编辑
                             </Button>
                             <Button
-                              variant="ghost"
                               size="sm"
                               onClick={() => openDeleteDialog(actualIndex)}
+                              className="bg-red-600 hover:bg-red-700 text-white"
                             >
-                              <Trash2 className="h-4 w-4" strokeWidth={2} fill="none" />
+                              <Trash2 className="h-4 w-4 mr-1" strokeWidth={2} fill="none" />
+                              删除
                             </Button>
                           </div>
                         </TableCell>
@@ -762,6 +786,96 @@ export function ModelConfigPage() {
               </TableBody>
             </Table>
           </div>
+
+          {/* 分页 - 增强版 */}
+          {filteredModels.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="page-size-model" className="text-sm whitespace-nowrap">每页显示</Label>
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(value) => {
+                    setPageSize(parseInt(value))
+                    setPage(1)
+                    setSelectedModels(new Set())
+                  }}
+                >
+                  <SelectTrigger id="page-size-model" className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-sm text-muted-foreground">
+                  显示 {(page - 1) * pageSize + 1} 到{' '}
+                  {Math.min(page * pageSize, filteredModels.length)} 条，共 {filteredModels.length} 条
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  className="hidden sm:flex"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">上一页</span>
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={jumpToPage}
+                    onChange={(e) => setJumpToPage(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleJumpToPage()}
+                    placeholder={page.toString()}
+                    className="w-16 h-8 text-center"
+                    min={1}
+                    max={totalPages}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleJumpToPage}
+                    disabled={!jumpToPage}
+                    className="h-8"
+                  >
+                    跳转
+                  </Button>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page >= totalPages}
+                >
+                  <span className="hidden sm:inline">下一页</span>
+                  <ChevronRight className="h-4 w-4 sm:ml-1" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(totalPages)}
+                  disabled={page >= totalPages}
+                  className="hidden sm:flex"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* 模型任务配置标签页 */}

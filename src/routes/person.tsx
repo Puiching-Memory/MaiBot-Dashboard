@@ -350,14 +350,23 @@ export function PersonManagementPage() {
               </SelectContent>
             </Select>
             {selectedPersons.size > 0 && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={openBatchDeleteDialog}
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                批量删除
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedPersons(new Set())}
+                >
+                  取消选择
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={openBatchDeleteDialog}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  批量删除
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -431,25 +440,28 @@ export function PersonManagementPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
-                          variant="ghost"
+                          variant="default"
                           size="sm"
                           onClick={() => handleViewDetail(person)}
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4 mr-1" />
+                          详情
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="default"
                           size="sm"
                           onClick={() => handleEdit(person)}
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-4 w-4 mr-1" />
+                          编辑
                         </Button>
                         <Button
-                          variant="ghost"
                           size="sm"
                           onClick={() => setDeleteConfirmPerson(person)}
+                          className="bg-red-600 hover:bg-red-700 text-white"
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          删除
                         </Button>
                       </div>
                     </TableCell>

@@ -364,25 +364,28 @@ export function ExpressionManagementPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
-                          variant="ghost"
+                          variant="default"
                           size="sm"
                           onClick={() => handleViewDetail(expression)}
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4 mr-1" />
+                          详情
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="default"
                           size="sm"
                           onClick={() => handleEdit(expression)}
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-4 w-4 mr-1" />
+                          编辑
                         </Button>
                         <Button
-                          variant="ghost"
                           size="sm"
                           onClick={() => setDeleteConfirmExpression(expression)}
+                          className="bg-red-600 hover:bg-red-700 text-white"
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          删除
                         </Button>
                       </div>
                     </TableCell>
