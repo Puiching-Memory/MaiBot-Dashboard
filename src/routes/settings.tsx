@@ -987,13 +987,204 @@ function OtherTab() {
 function AboutTab() {
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* 应用信息 */}
       <div className="rounded-lg border bg-card p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">关于 {APP_NAME}</h3>
         <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
           <p>版本: {APP_VERSION}</p>
-          <p>基于 React 19 + Vite + TanStack Router</p>
+          <p>麦麦（MaiBot）的现代化 Web 管理界面</p>
         </div>
       </div>
+
+      {/* 作者信息 */}
+      <div className="rounded-lg border bg-card p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">作者</h3>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">MaiBot 核心</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Mai-with-u</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">WebUI</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">Mai-with-u <a href="https://github.com/DrSmoothl" target="_blank" rel="noopener noreferrer" className="text-primary underline">@MotricSeven</a></p>
+          </div>
+        </div>
+      </div>
+
+      {/* 技术栈 */}
+      <div className="rounded-lg border bg-card p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">技术栈</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm text-muted-foreground">
+          <div className="space-y-1.5">
+            <p className="font-medium text-foreground">前端框架</p>
+            <ul className="space-y-0.5 list-disc list-inside">
+              <li>React 19.2.0</li>
+              <li>TypeScript 5.7.2</li>
+              <li>Vite 6.0.7</li>
+              <li>TanStack Router 1.94.2</li>
+            </ul>
+          </div>
+          <div className="space-y-1.5">
+            <p className="font-medium text-foreground">UI 组件</p>
+            <ul className="space-y-0.5 list-disc list-inside">
+              <li>shadcn/ui</li>
+              <li>Radix UI</li>
+              <li>Tailwind CSS 3.4.17</li>
+              <li>Lucide Icons</li>
+            </ul>
+          </div>
+          <div className="space-y-1.5">
+            <p className="font-medium text-foreground">后端</p>
+            <ul className="space-y-0.5 list-disc list-inside">
+              <li>Python 3.12+</li>
+              <li>FastAPI</li>
+              <li>Uvicorn</li>
+              <li>WebSocket</li>
+            </ul>
+          </div>
+          <div className="space-y-1.5">
+            <p className="font-medium text-foreground">构建工具</p>
+            <ul className="space-y-0.5 list-disc list-inside">
+              <li>Bun / npm</li>
+              <li>ESLint 9.17.0</li>
+              <li>PostCSS</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* 开源感谢 */}
+      <div className="rounded-lg border bg-card p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">开源库感谢</h3>
+        <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+          本项目使用了以下优秀的开源库，感谢他们的贡献：
+        </p>
+        <ScrollArea className="h-[300px] sm:h-[400px]">
+          <div className="space-y-4 pr-4">
+            {/* UI 框架 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">UI 框架与组件</p>
+              <div className="grid gap-2 text-xs sm:text-sm">
+                <LibraryItem name="React" description="用户界面构建库" license="MIT" />
+                <LibraryItem name="shadcn/ui" description="优雅的 React 组件库" license="MIT" />
+                <LibraryItem name="Radix UI" description="无样式的可访问组件库" license="MIT" />
+                <LibraryItem name="Tailwind CSS" description="实用优先的 CSS 框架" license="MIT" />
+                <LibraryItem name="Lucide React" description="精美的图标库" license="ISC" />
+              </div>
+            </div>
+
+            {/* 路由与状态 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">路由与状态管理</p>
+              <div className="grid gap-2 text-xs sm:text-sm">
+                <LibraryItem name="TanStack Router" description="类型安全的路由库" license="MIT" />
+                <LibraryItem name="Zustand" description="轻量级状态管理" license="MIT" />
+              </div>
+            </div>
+
+            {/* 表单与验证 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">表单处理</p>
+              <div className="grid gap-2 text-xs sm:text-sm">
+                <LibraryItem name="React Hook Form" description="高性能表单库" license="MIT" />
+                <LibraryItem name="Zod" description="TypeScript 优先的 schema 验证" license="MIT" />
+              </div>
+            </div>
+
+            {/* 工具库 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">工具库</p>
+              <div className="grid gap-2 text-xs sm:text-sm">
+                <LibraryItem name="clsx" description="条件 className 构建工具" license="MIT" />
+                <LibraryItem name="tailwind-merge" description="Tailwind 类名合并工具" license="MIT" />
+                <LibraryItem name="class-variance-authority" description="组件变体管理" license="Apache-2.0" />
+                <LibraryItem name="date-fns" description="现代化日期处理库" license="MIT" />
+              </div>
+            </div>
+
+            {/* 动画 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">动画效果</p>
+              <div className="grid gap-2 text-xs sm:text-sm">
+                <LibraryItem name="Framer Motion" description="React 动画库" license="MIT" />
+                <LibraryItem name="vaul" description="抽屉组件动画" license="MIT" />
+              </div>
+            </div>
+
+            {/* 后端相关 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">后端框架</p>
+              <div className="grid gap-2 text-xs sm:text-sm">
+                <LibraryItem name="FastAPI" description="现代化 Python Web 框架" license="MIT" />
+                <LibraryItem name="Uvicorn" description="ASGI 服务器" license="BSD-3-Clause" />
+                <LibraryItem name="Pydantic" description="数据验证库" license="MIT" />
+                <LibraryItem name="python-multipart" description="文件上传支持" license="Apache-2.0" />
+              </div>
+            </div>
+
+            {/* 开发工具 */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">开发工具</p>
+              <div className="grid gap-2 text-xs sm:text-sm">
+                <LibraryItem name="TypeScript" description="JavaScript 的超集" license="Apache-2.0" />
+                <LibraryItem name="Vite" description="下一代前端构建工具" license="MIT" />
+                <LibraryItem name="ESLint" description="JavaScript 代码检查工具" license="MIT" />
+                <LibraryItem name="PostCSS" description="CSS 转换工具" license="MIT" />
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* 许可证 */}
+      <div className="rounded-lg border bg-card p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">开源许可</h3>
+        <div className="space-y-3">
+          <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 sm:p-4">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <div className="flex-shrink-0 mt-0.5">
+                <div className="rounded-md bg-primary/10 px-2 py-1">
+                  <span className="text-xs sm:text-sm font-bold text-primary">GPLv3</span>
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm sm:text-base font-semibold text-foreground mb-1">
+                  MaiBot WebUI
+                </p>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  本项目采用 GNU General Public License v3.0 开源许可证。
+                  您可以自由地使用、修改和分发本软件，但必须保持相同的开源许可。
+                </p>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            本项目依赖的所有开源库均遵循各自的开源许可证（MIT、Apache-2.0、BSD 等）。
+            感谢所有开源贡献者的无私奉献。
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 库信息组件
+type LibraryItemProps = {
+  name: string
+  description: string
+  license: string
+}
+
+function LibraryItem({ name, description, license }: LibraryItemProps) {
+  return (
+    <div className="flex items-start justify-between gap-2 rounded-lg border bg-muted/30 p-2.5 sm:p-3">
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-foreground truncate">{name}</p>
+        <p className="text-muted-foreground text-xs mt-0.5">{description}</p>
+      </div>
+      <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary flex-shrink-0">
+        {license}
+      </span>
     </div>
   )
 }
