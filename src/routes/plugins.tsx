@@ -43,6 +43,8 @@ import {
 } from '@/lib/plugin-api'
 import { useToast } from '@/hooks/use-toast'
 import { Progress } from '@/components/ui/progress'
+import { PluginStats } from '@/components/plugin-stats'
+import { recordPluginDownload, getPluginStats, type PluginStatsData } from '@/lib/plugin-stats'
 
 // 分类名称映射
 const CATEGORY_NAMES: Record<string, string> = {
@@ -70,7 +72,32 @@ export function PluginsPage() {
   const [loadProgress, setLoadProgress] = useState<PluginLoadProgress | null>(null)
   const [maimaiVersion, setMaimaiVersion] = useState<MaimaiVersion | null>(null)
   const [, setInstalledPlugins] = useState<InstalledPlugin[]>([])
+  const [pluginStats, setPluginStats] = useState<Record<string, PluginStatsData>>({})
   const { toast } = useToast()
+
+  // 加载插件统计数据
+  const loadPluginStats = async (pluginList: PluginInfo[]) => {
+    const statsPromises = pluginList.map(async (plugin) => {
+      try {
+        const stats = await getPluginStats(plugin.id)
+        return { id: plugin.id, stats }
+      } catch (error) {
+        console.warn(`Failed to load stats for ${plugin.id}:`, error)
+        return { id: plugin.id, stats: null }
+      }
+    })
+
+    const results = await Promise.all(statsPromises)
+    const statsMap: Record<string, PluginStatsData> = {}
+    
+    results.forEach(({ id, stats }) => {
+      if (stats) {
+        statsMap[id] = stats
+      }
+    })
+
+    setPluginStats(statsMap)
+  }
 
   // 统一管理 WebSocket 和数据加载
   useEffect(() => {
@@ -210,6 +237,9 @@ export function PluginsPage() {
             }
             
             setPlugins(mergedData)
+            
+            // 6. 加载所有插件的统计数据
+            loadPluginStats(mergedData)
           }
         } catch (err) {
           if (!isUnmounted) {
@@ -399,6 +429,11 @@ export function PluginsPage() {
         plugin.manifest.repository_url || '',
         'main'
       )
+      
+      // 记录下载统计
+      recordPluginDownload(plugin.id).catch(err => {
+        console.warn('Failed to record download:', err)
+      })
       
       toast({
         title: '安装成功',
@@ -735,11 +770,11 @@ export function PluginsPage() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Download className="h-4 w-4" />
-                      <span>{plugin.downloads.toLocaleString()}</span>
+                      <span>{(pluginStats[plugin.id]?.downloads ?? plugin.downloads ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span>{plugin.rating.toFixed(1)}</span>
+                      <span>{(pluginStats[plugin.id]?.rating ?? plugin.rating ?? 0).toFixed(1)}</span>
                     </div>
                   </div>
                   {/* 标签 */}
@@ -866,6 +901,9 @@ export function PluginsPage() {
               </DialogHeader>
 
               <div className="space-y-6">
+                {/* 插件统计 */}
+                <PluginStats pluginId={selectedPlugin.id} />
+
                 {/* 基本信息 */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <div>
@@ -880,7 +918,7 @@ export function PluginsPage() {
                   <div>
                     <p className="text-sm font-medium">下载量</p>
                     <p className="text-sm text-muted-foreground">
-                      {selectedPlugin.downloads.toLocaleString()}
+                      {(pluginStats[selectedPlugin.id]?.downloads ?? selectedPlugin.downloads ?? 0).toLocaleString()}
                     </p>
                   </div>
                   <div>
@@ -888,7 +926,7 @@ export function PluginsPage() {
                     <div className="flex items-center gap-1">
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                       <span className="text-sm text-muted-foreground">
-                        {selectedPlugin.rating.toFixed(1)} ({selectedPlugin.review_count})
+                        {(pluginStats[selectedPlugin.id]?.rating ?? selectedPlugin.rating ?? 0).toFixed(1)} ({pluginStats[selectedPlugin.id]?.rating_count ?? selectedPlugin.review_count ?? 0})
                       </span>
                     </div>
                   </div>
