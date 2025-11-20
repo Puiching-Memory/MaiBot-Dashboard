@@ -100,6 +100,37 @@ export async function updateBotConfig(config: Record<string, unknown>): Promise<
 }
 
 /**
+ * 获取麦麦主程序配置的原始 TOML 内容
+ */
+export async function getBotConfigRaw(): Promise<string> {
+  const response = await fetchWithAuth(`${API_BASE}/bot/raw`)
+  const data: { success: boolean; content: string } = await response.json()
+  
+  if (!data.success) {
+    throw new Error('获取配置源代码失败')
+  }
+  
+  return data.content
+}
+
+/**
+ * 更新麦麦主程序配置（原始 TOML 内容）
+ */
+export async function updateBotConfigRaw(rawContent: string): Promise<void> {
+  const response = await fetchWithAuth(`${API_BASE}/bot/raw`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ raw_content: rawContent }),
+  })
+  
+  const data: ConfigUpdateResponse = await response.json()
+  
+  if (!data.success) {
+    throw new Error(data.message || '保存配置失败')
+  }
+}
+
+/**
  * 更新模型配置
  */
 export async function updateModelConfig(config: Record<string, unknown>): Promise<void> {

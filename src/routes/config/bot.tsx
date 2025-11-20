@@ -38,13 +38,14 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Save, Plus, Trash2, Eye, Clock, FileSearch, Power } from 'lucide-react'
-import { getBotConfig, updateBotConfig, updateBotConfigSection } from '@/lib/config-api'
+import { Save, Plus, Trash2, Eye, Clock, FileSearch, Power, Code2, Layout } from 'lucide-react'
+import { getBotConfig, updateBotConfig, updateBotConfigSection, getBotConfigRaw, updateBotConfigRaw } from '@/lib/config-api'
 import { restartMaiBot } from '@/lib/system-api'
 import { useToast } from '@/hooks/use-toast'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Info } from 'lucide-react'
 import { RestartingOverlay } from '@/components/RestartingOverlay'
+import { CodeEditor } from '@/components'
 
 interface BotConfig {
   platform: string
@@ -199,6 +200,9 @@ export function BotConfigPage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [restarting, setRestarting] = useState(false)
   const [showRestartOverlay, setShowRestartOverlay] = useState(false)
+  const [editMode, setEditMode] = useState<'visual' | 'source'>('visual')
+  const [sourceCode, setSourceCode] = useState<string>('')
+  const [hasTomlError, setHasTomlError] = useState(false)
   const { toast } = useToast()
 
   // 配置状态
@@ -225,6 +229,21 @@ export function BotConfigPage() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initialLoadRef = useRef(true)
   const configRef = useRef<Record<string, unknown>>({})
+
+  // 加载源代码
+  const loadSourceCode = useCallback(async () => {
+    try {
+      const raw = await getBotConfigRaw()
+      setSourceCode(raw)
+      setHasTomlError(false)
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: '加载失败',
+        description: error instanceof Error ? error.message : '加载源代码失败',
+      })
+    }
+  }, [toast])
 
   // 加载配置
   const loadConfig = useCallback(async () => {
@@ -261,6 +280,9 @@ export function BotConfigPage() {
 
       setHasUnsavedChanges(false)
       initialLoadRef.current = false
+      
+      // 同时加载源代码
+      await loadSourceCode()
     } catch (error) {
       console.error('加载配置失败:', error)
       toast({
@@ -271,7 +293,7 @@ export function BotConfigPage() {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [toast, loadSourceCode])
 
   useEffect(() => {
     loadConfig()
@@ -419,6 +441,50 @@ export function BotConfigPage() {
       triggerAutoSave('telemetry', telemetryConfig)
     }
   }, [telemetryConfig, triggerAutoSave])
+
+  // 保存源代码
+  const saveSourceCode = async () => {
+    try {
+      setSaving(true)
+      await updateBotConfigRaw(sourceCode)
+      setHasUnsavedChanges(false)
+      setHasTomlError(false)
+      toast({
+        title: '保存成功',
+        description: '配置已保存',
+      })
+      // 重新加载可视化配置
+      await loadConfig()
+    } catch (error) {
+      setHasTomlError(true)
+      toast({
+        variant: 'destructive',
+        title: '保存失败',
+        description: error instanceof Error ? error.message : '保存配置失败',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // 处理模式切换
+  const handleModeChange = async (mode: 'visual' | 'source') => {
+    if (hasUnsavedChanges) {
+      toast({
+        variant: 'destructive',
+        title: '切换失败',
+        description: '请先保存当前更改',
+      })
+      return
+    }
+
+    setEditMode(mode)
+    if (mode === 'source') {
+      await loadSourceCode()
+    } else {
+      await loadConfig()
+    }
+  }
 
   // 手动保存
   const saveConfig = async () => {
@@ -579,9 +645,23 @@ export function BotConfigPage() {
             <h1 className="text-2xl sm:text-3xl font-bold">麦麦主程序配置</h1>
             <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">管理麦麦的核心功能和行为设置</p>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex gap-2 w-full sm:w-auto items-center">
+            {/* 模式切换 */}
+            <Tabs value={editMode} onValueChange={(v) => handleModeChange(v as 'visual' | 'source')} className="w-auto">
+              <TabsList className="h-9">
+                <TabsTrigger value="visual" className="text-xs sm:text-sm px-2 sm:px-3">
+                  <Layout className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  可视化
+                </TabsTrigger>
+                <TabsTrigger value="source" className="text-xs sm:text-sm px-2 sm:px-3">
+                  <Code2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  源代码
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
             <Button
-              onClick={saveConfig}
+              onClick={editMode === 'visual' ? saveConfig : saveSourceCode}
               disabled={saving || autoSaving || !hasUnsavedChanges || restarting}
               size="sm"
               variant="outline"
@@ -630,6 +710,41 @@ export function BotConfigPage() {
           </AlertDescription>
         </Alert>
 
+        {/* 源代码模式 */}
+        {editMode === 'source' && (
+          <div className="space-y-4">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <strong>源代码模式（高级功能）：</strong>直接编辑 TOML 配置文件。此功能仅适用于熟悉 TOML 语法的高级用户。保存时会在后端验证格式，只有格式完全正确才能保存。
+                {hasTomlError && (
+                  <span className="text-destructive font-semibold ml-2">⚠️ 上次保存失败，请检查 TOML 格式</span>
+                )}
+              </AlertDescription>
+            </Alert>
+            
+            <CodeEditor
+              value={sourceCode}
+              onChange={(value) => {
+                setSourceCode(value)
+                setHasUnsavedChanges(true)
+                // 清除之前的错误状态
+                if (hasTomlError) {
+                  setHasTomlError(false)
+                }
+              }}
+              language="toml"
+              theme="dark"
+              height="calc(100vh - 280px)"
+              minHeight="500px"
+              placeholder="TOML 配置内容"
+            />
+          </div>
+        )}
+
+        {/* 可视化模式 */}
+        {editMode === 'visual' && (
+          <>
         {/* 标签页 */}
         <Tabs defaultValue="bot" className="w-full">
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -723,6 +838,8 @@ export function BotConfigPage() {
           {telemetryConfig && <TelemetrySection config={telemetryConfig} onChange={setTelemetryConfig} />}
         </TabsContent>
       </Tabs>
+          </>
+        )}
 
       {/* 重启遮罩层 */}
       {showRestartOverlay && (
