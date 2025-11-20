@@ -8,6 +8,7 @@ import { NotFoundPage } from './routes/404'
 import { BotConfigPage } from './routes/config/bot'
 import { ModelProviderConfigPage } from './routes/config/modelProvider'
 import { ModelConfigPage } from './routes/config/model'
+import { AdapterConfigPage } from './routes/config/adapter'
 import { EmojiManagementPage } from './routes/resource/emoji'
 import { ExpressionManagementPage } from './routes/resource/expression'
 import { PersonManagementPage } from './routes/person'
@@ -87,6 +88,13 @@ const modelConfigRoute = createRoute({
   component: ModelConfigPage,
 })
 
+// 配置路由 - 麦麦适配器配置
+const adapterConfigRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/config/adapter',
+  component: AdapterConfigPage,
+})
+
 // 资源管理路由 - 表情包管理
 const emojiManagementRoute = createRoute({
   getParentRoute: () => protectedRoute,
@@ -159,6 +167,7 @@ const routeTree = rootRoute.addChildren([
     botConfigRoute,
     modelProviderConfigRoute,
     modelConfigRoute,
+    adapterConfigRoute,
     emojiManagementRoute,
     expressionManagementRoute,
     personManagementRoute,

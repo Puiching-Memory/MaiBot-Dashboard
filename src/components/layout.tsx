@@ -80,6 +80,7 @@ export function Layout({ children }: LayoutProps) {
         { icon: FileText, label: '麦麦主程序配置', path: '/config/bot' },
         { icon: Server, label: '麦麦模型提供商配置', path: '/config/modelProvider' },
         { icon: Boxes, label: '麦麦模型配置', path: '/config/model' },
+        { icon: Sliders, label: '麦麦适配器配置', path: '/config/adapter' },
       ],
     },
     {

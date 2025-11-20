@@ -62,6 +62,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Markdown } from '@/components/ui/markdown'
 import { useToast } from '@/hooks/use-toast'
 import type { Emoji, EmojiStats } from '@/types/emoji'
 import {
@@ -996,7 +997,13 @@ function EmojiDetailDialog({
 
           <div>
             <Label className="text-muted-foreground">描述</Label>
-            <div className="mt-1">{emoji.description || '-'}</div>
+            {emoji.description ? (
+              <div className="mt-1 rounded-lg border bg-muted/50 p-3">
+                <Markdown className="prose-sm">{emoji.description}</Markdown>
+              </div>
+            ) : (
+              <div className="mt-1 text-sm text-muted-foreground">-</div>
+            )}
           </div>
 
           <div>

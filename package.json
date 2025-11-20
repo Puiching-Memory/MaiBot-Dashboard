@@ -35,11 +35,16 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "jotai": "^2.15.1",
+    "katex": "^0.16.25",
     "lucide-react": "^0.553.0",
     "react": "^19.2.0",
     "react-day-picker": "^9.11.1",
     "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
     "recharts": "2.15.4",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
