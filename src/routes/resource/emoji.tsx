@@ -521,7 +521,7 @@ export function EmojiManagementPage() {
                   <TableHead className="w-16">预览</TableHead>
                   <TableHead>描述</TableHead>
                   <TableHead>格式</TableHead>
-                  <TableHead>情绪标签</TableHead>
+                  <TableHead>情绪</TableHead>
                   <TableHead className="text-center">状态</TableHead>
                   <TableHead className="text-right">使用次数</TableHead>
                   <TableHead className="text-right">操作</TableHead>
@@ -715,8 +715,8 @@ export function EmojiManagementPage() {
                         </span>
                       </div>
 
-                      {/* 情绪标签 */}
-                      {emoji.emotion && emoji.emotion.length > 0 && (
+                      {/* 情绪 */}
+                      {emoji.emotion && emoji.emotion.trim() && (
                         <div className="min-w-0 overflow-hidden">
                           <EmotionTags emotions={emoji.emotion} />
                         </div>
@@ -1007,22 +1007,13 @@ function EmojiDetailDialog({
           </div>
 
           <div>
-            <Label className="text-muted-foreground">情绪标签</Label>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {(() => {
-                const emotionArray = emoji.emotion
-                  ? emoji.emotion.split(/[,,]/).map((s: string) => s.trim()).filter(Boolean)
-                  : []
-                return emotionArray.length > 0 ? (
-                  emotionArray.map((tag: string, index: number) => (
-                    <Badge key={index} variant="secondary">
-                      {tag}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-muted-foreground">无</span>
-                )
-              })()}
+            <Label className="text-muted-foreground">情绪</Label>
+            <div className="mt-1">
+              {emoji.emotion ? (
+                <span className="text-sm">{emoji.emotion}</span>
+              ) : (
+                <span className="text-sm text-muted-foreground">-</span>
+              )}
             </div>
           </div>
 
@@ -1159,15 +1150,16 @@ function EmojiEditDialog({
           </div>
 
           <div>
-            <Label>情绪标签</Label>
-            <Input
+            <Label>情绪</Label>
+            <Textarea
               value={emotionInput}
               onChange={(e) => setEmotionInput(e.target.value)}
-              placeholder="使用逗号分隔多个标签，如：开心, 微笑, 快乐"
+              placeholder="输入情绪描述..."
+              rows={2}
               className="mt-1"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              输入多个标签时使用逗号分隔（支持中英文逗号）
+              输入情绪相关的文本描述
             </p>
           </div>
 
@@ -1208,48 +1200,22 @@ function EmojiEditDialog({
   )
 }
 
-// 情绪标签组件
+// 情绪组件 - 直接显示字符串,限制字数
 function EmotionTags({ emotions }: { emotions: string | null | undefined }) {
-  // 解析emotion字符串为数组（支持中文和英文逗号分隔）
-  const emotionArray = emotions
-    ? emotions.split(/[,,]/).map(s => s.trim()).filter(Boolean)
-    : []
-
-  if (emotionArray.length === 0) {
+  // 直接显示字符串，不解析为标签
+  if (!emotions || emotions.trim() === '') {
     return <span className="text-xs text-muted-foreground">-</span>
   }
 
-  // 截断文本辅助函数
-  const truncateText = (text: string, maxLength: number = 6) => {
-    if (text.length <= maxLength) return text
-    return text.slice(0, maxLength) + '...'
-  }
-
-  // 最多显示3个标签
-  const displayEmotions = emotionArray.slice(0, 3)
-  const remainingCount = emotionArray.length - 3
+  // 限制显示长度
+  const maxLength = 20
+  const displayText = emotions.length > maxLength 
+    ? emotions.slice(0, maxLength) + '...' 
+    : emotions
 
   return (
-    <div className="flex flex-wrap gap-1 max-w-full overflow-hidden">
-      {displayEmotions.map((emotion, index) => (
-        <Badge 
-          key={index} 
-          variant="secondary"
-          className="text-xs flex-shrink-0"
-          title={emotion} // 悬停显示完整文本
-        >
-          {truncateText(emotion)}
-        </Badge>
-      ))}
-      {remainingCount > 0 && (
-        <Badge 
-          variant="outline" 
-          className="text-xs flex-shrink-0"
-          title={`还有 ${remainingCount} 个标签: ${emotionArray.slice(3).join(', ')}`}
-        >
-          +{remainingCount}
-        </Badge>
-      )}
+    <div className="text-sm break-words max-w-xs" title={emotions}>
+      {displayText}
     </div>
   )
 }
