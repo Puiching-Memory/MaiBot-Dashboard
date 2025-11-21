@@ -29,7 +29,6 @@ export function LogViewerPage() {
   const [autoScroll, setAutoScroll] = useState(true)
   const [connected, setConnected] = useState(false)
   const parentRef = useRef<HTMLDivElement>(null)
-  const updateTimerRef = useRef<number | null>(null)
 
   // 订阅全局 WebSocket 连接
   useEffect(() => {
