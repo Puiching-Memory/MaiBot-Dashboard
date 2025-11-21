@@ -482,7 +482,46 @@ export function BotConfigPage() {
     if (mode === 'source') {
       await loadSourceCode()
     } else {
-      await loadConfig()
+      // 切换回可视化时,直接重新加载配置但不显示全局 loading
+      try {
+        const config = await getBotConfig()
+        configRef.current = config
+
+        setBotConfig(config.bot as BotConfig)
+        setPersonalityConfig(config.personality as PersonalityConfig)
+        
+        // 确保 talk_value_rules 有默认值
+        const chatConfigData = config.chat as ChatConfig
+        if (!chatConfigData.talk_value_rules) {
+          chatConfigData.talk_value_rules = []
+        }
+        setChatConfig(chatConfigData)
+        
+        setExpressionConfig(config.expression as ExpressionConfig)
+        setEmojiConfig(config.emoji as EmojiConfig)
+        setMemoryConfig(config.memory as MemoryConfig)
+        setToolConfig(config.tool as ToolConfig)
+        setMoodConfig(config.mood as MoodConfig)
+        setVoiceConfig(config.voice as VoiceConfig)
+        setLpmmConfig(config.lpmm_knowledge as LPMMKnowledgeConfig)
+        setKeywordReactionConfig(config.keyword_reaction as KeywordReactionConfig)
+        setResponsePostProcessConfig(config.response_post_process as ResponsePostProcessConfig)
+        setChineseTypoConfig(config.chinese_typo as ChineseTypoConfig)
+        setResponseSplitterConfig(config.response_splitter as ResponseSplitterConfig)
+        setLogConfig(config.log as LogConfig)
+        setDebugConfig(config.debug as DebugConfig)
+        setMaimMessageConfig(config.maim_message as MaimMessageConfig)
+        setTelemetryConfig(config.telemetry as TelemetryConfig)
+
+        setHasUnsavedChanges(false)
+      } catch (error) {
+        console.error('加载配置失败:', error)
+        toast({
+          title: '加载失败',
+          description: '无法加载配置文件',
+          variant: 'destructive',
+        })
+      }
     }
   }
 
