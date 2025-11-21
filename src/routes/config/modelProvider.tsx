@@ -575,24 +575,25 @@ export function ModelProviderConfigPage() {
 
         {/* 提供商列表 - 桌面端表格视图 */}
         <div className="hidden md:block rounded-lg border bg-card overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={selectedProviders.size === filteredProviders.length && filteredProviders.length > 0}
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </TableHead>
-                <TableHead>名称</TableHead>
-                <TableHead>基础URL</TableHead>
-                <TableHead>客户端类型</TableHead>
-                <TableHead className="text-right">最大重试</TableHead>
-                <TableHead className="text-right">超时(秒)</TableHead>
-                <TableHead className="text-right">重试间隔(秒)</TableHead>
-                <TableHead className="text-right">操作</TableHead>
-              </TableRow>
-            </TableHeader>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedProviders.size === filteredProviders.length && filteredProviders.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead>名称</TableHead>
+                  <TableHead>基础URL</TableHead>
+                  <TableHead>客户端类型</TableHead>
+                  <TableHead className="text-right">最大重试</TableHead>
+                  <TableHead className="text-right">超时(秒)</TableHead>
+                  <TableHead className="text-right">重试间隔(秒)</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {paginatedProviders.length === 0 ? (
                 <TableRow>
@@ -645,6 +646,7 @@ export function ModelProviderConfigPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </div>
 
         {/* 分页 - 增强版 */}

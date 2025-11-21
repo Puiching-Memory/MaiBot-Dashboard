@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,8 +28,8 @@ export function LogViewerPage() {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined)
   const [autoScroll, setAutoScroll] = useState(true)
   const [connected, setConnected] = useState(false)
-  const viewportRef = useRef<HTMLDivElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const parentRef = useRef<HTMLDivElement>(null)
+  const updateTimerRef = useRef<number | null>(null)
 
   // 订阅全局 WebSocket 连接
   useEffect(() => {
@@ -53,14 +54,6 @@ export function LogViewerPage() {
       unsubscribeConnection()
     }
   }, [])
-
-  // 自动滚动到底部
-  useEffect(() => {
-    if (autoScroll && bottomRef.current) {
-      // 使用 scrollIntoView 确保滚动到底部
-      bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' })
-    }
-  }, [logs, autoScroll])
 
   // 获取所有唯一的模块名
   const uniqueModules = useMemo(() => {
@@ -175,6 +168,24 @@ export function LogViewerPage() {
       return matchesSearch && matchesLevel && matchesModule && matchesDate
     })
   }, [logs, searchQuery, levelFilter, moduleFilter, dateFrom, dateTo])
+
+  // 虚拟滚动配置
+  const rowVirtualizer = useVirtualizer({
+    count: filteredLogs.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 80, // 预估每条日志高度(移动端垂直布局更高)
+    overscan: 10, // 上下各额外渲染10条
+  })
+
+  // 自动滚动到底部
+  useEffect(() => {
+    if (autoScroll && filteredLogs.length > 0) {
+      rowVirtualizer.scrollToIndex(filteredLogs.length - 1, {
+        align: 'end',
+        behavior: 'auto',
+      })
+    }
+  }, [filteredLogs.length, autoScroll, rowVirtualizer])
 
   return (
     <ScrollArea className="h-full">
@@ -380,82 +391,95 @@ export function LogViewerPage() {
           </div>
         </Card>
 
-        {/* 日志终端 */}
+        {/* 日志终端 - 使用虚拟滚动 */}
         <Card className="bg-black dark:bg-gray-950 border-gray-800 dark:border-gray-900">
-          <ScrollArea className="h-[calc(100vh-280px)] sm:h-[calc(100vh-320px)] lg:h-[calc(100vh-400px)]">
-            <div ref={viewportRef} className="p-2 sm:p-3 lg:p-4 font-mono text-xs sm:text-sm space-y-1">
+          <ScrollArea 
+            viewportRef={parentRef}
+            className="h-[calc(100vh-280px)] sm:h-[calc(100vh-320px)] lg:h-[calc(100vh-400px)]"
+          >
+              <div
+                className="p-2 sm:p-3 lg:p-4 font-mono text-xs sm:text-sm relative"
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                }}
+              >
               {filteredLogs.length === 0 ? (
                 <div className="text-gray-500 dark:text-gray-600 text-center py-8 text-sm">
                   暂无日志数据
                 </div>
               ) : (
-                filteredLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className={cn(
-                      'py-2 px-2 sm:px-3 rounded hover:bg-white/5 transition-colors group',
-                      getLevelBgColor(log.level)
-                    )}
-                  >
-                    {/* 移动端：垂直布局 */}
-                    <div className="flex flex-col gap-1 sm:hidden">
-                      {/* 第一行：时间戳和级别 */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 dark:text-gray-600 text-xs">
+                rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const log = filteredLogs[virtualRow.index]
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
+                      className={cn(
+                        'absolute top-0 left-0 w-full py-2 px-2 sm:px-3 rounded hover:bg-white/5 transition-colors group',
+                        getLevelBgColor(log.level)
+                      )}
+                      style={{
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      {/* 移动端：垂直布局 */}
+                      <div className="flex flex-col gap-1 sm:hidden">
+                        {/* 第一行：时间戳和级别 */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500 dark:text-gray-600 text-xs">
+                            {log.timestamp}
+                          </span>
+                          <span
+                            className={cn(
+                              'text-xs font-semibold',
+                              getLevelColor(log.level)
+                            )}
+                          >
+                            [{log.level}]
+                          </span>
+                        </div>
+                        {/* 第二行：模块名 */}
+                        <div className="text-cyan-400 dark:text-cyan-500 text-xs truncate">
+                          {log.module}
+                        </div>
+                        {/* 第三行：消息内容 */}
+                        <div className="text-gray-300 dark:text-gray-400 text-xs whitespace-pre-wrap break-words">
+                          {log.message}
+                        </div>
+                      </div>
+
+                      {/* 平板/桌面端：水平布局 */}
+                      <div className="hidden sm:flex gap-3 items-start">
+                        {/* 时间戳 */}
+                        <span className="text-gray-500 dark:text-gray-600 flex-shrink-0 w-[140px] lg:w-[180px] text-xs lg:text-sm">
                           {log.timestamp}
                         </span>
+
+                        {/* 日志级别 */}
                         <span
                           className={cn(
-                            'text-xs font-semibold',
+                            'flex-shrink-0 w-[70px] lg:w-[80px] font-semibold text-xs lg:text-sm',
                             getLevelColor(log.level)
                           )}
                         >
                           [{log.level}]
                         </span>
-                      </div>
-                      {/* 第二行：模块名 */}
-                      <div className="text-cyan-400 dark:text-cyan-500 text-xs truncate">
-                        {log.module}
-                      </div>
-                      {/* 第三行：消息内容 */}
-                      <div className="text-gray-300 dark:text-gray-400 text-xs whitespace-pre-wrap break-words">
-                        {log.message}
+
+                        {/* 模块名 */}
+                        <span className="text-cyan-400 dark:text-cyan-500 flex-shrink-0 w-[120px] lg:w-[150px] truncate text-xs lg:text-sm">
+                          {log.module}
+                        </span>
+
+                        {/* 消息内容 */}
+                        <span className="text-gray-300 dark:text-gray-400 flex-1 whitespace-pre-wrap break-words text-xs lg:text-sm">
+                          {log.message}
+                        </span>
                       </div>
                     </div>
-
-                    {/* 平板/桌面端：水平布局 */}
-                    <div className="hidden sm:flex gap-3 items-start">
-                      {/* 时间戳 */}
-                      <span className="text-gray-500 dark:text-gray-600 flex-shrink-0 w-[140px] lg:w-[180px] text-xs lg:text-sm">
-                        {log.timestamp}
-                      </span>
-
-                      {/* 日志级别 */}
-                      <span
-                        className={cn(
-                          'flex-shrink-0 w-[70px] lg:w-[80px] font-semibold text-xs lg:text-sm',
-                          getLevelColor(log.level)
-                        )}
-                      >
-                        [{log.level}]
-                      </span>
-
-                      {/* 模块名 */}
-                      <span className="text-cyan-400 dark:text-cyan-500 flex-shrink-0 w-[120px] lg:w-[150px] truncate text-xs lg:text-sm">
-                        {log.module}
-                      </span>
-
-                      {/* 消息内容 */}
-                      <span className="text-gray-300 dark:text-gray-400 flex-1 whitespace-pre-wrap break-words text-xs lg:text-sm">
-                        {log.message}
-                      </span>
-                    </div>
-                  </div>
-                ))
+                  )
+                })
               )}
-
-              {/* 底部锚点，用于自动滚动 */}
-              <div ref={bottomRef} className="h-4" />
             </div>
           </ScrollArea>
         </Card>

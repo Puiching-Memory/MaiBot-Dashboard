@@ -703,25 +703,26 @@ export function ModelConfigPage() {
 
           {/* 模型列表 - 桌面端表格视图 */}
           <div className="hidden md:block rounded-lg border bg-card overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={selectedModels.size === filteredModels.length && filteredModels.length > 0}
-                      onCheckedChange={toggleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead className="w-24">使用状态</TableHead>
-                  <TableHead>模型名称</TableHead>
-                  <TableHead>模型标识符</TableHead>
-                  <TableHead>提供商</TableHead>
-                  <TableHead className="text-right">输入价格</TableHead>
-                  <TableHead className="text-right">输出价格</TableHead>
-                  <TableHead className="text-center">强制流式</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedModels.size === filteredModels.length && filteredModels.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
+                    <TableHead className="w-24">使用状态</TableHead>
+                    <TableHead>模型名称</TableHead>
+                    <TableHead>模型标识符</TableHead>
+                    <TableHead>提供商</TableHead>
+                    <TableHead className="text-right">输入价格</TableHead>
+                    <TableHead className="text-right">输出价格</TableHead>
+                    <TableHead className="text-center">强制流式</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {paginatedModels.length === 0 ? (
                   <TableRow>
@@ -785,6 +786,7 @@ export function ModelConfigPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </div>
 
           {/* 分页 - 增强版 */}

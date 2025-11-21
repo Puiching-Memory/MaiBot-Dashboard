@@ -164,12 +164,18 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </div>
 
-        <ScrollArea className="flex-1">
-          <nav className="p-4">
+        <ScrollArea className={cn(
+          "flex-1 overflow-x-hidden",
+          !sidebarOpen && "lg:w-16"
+        )}>
+          <nav className={cn(
+            "p-4",
+            !sidebarOpen && "lg:p-2 lg:w-16"
+          )}>
             <ul className={cn(
               // 移动端始终使用正常间距,桌面端根据 sidebarOpen 切换
               "space-y-6",
-              !sidebarOpen && "lg:space-y-3"
+              !sidebarOpen && "lg:space-y-3 lg:w-full"
             )}>
             {menuSections.map((section, sectionIndex) => (
               <li key={section.title}>
@@ -204,7 +210,7 @@ export function Layout({ children }: LayoutProps) {
                         )}
                         <div className={cn(
                           'flex items-center transition-all duration-300',
-                          sidebarOpen ? 'gap-3' : 'lg:gap-0'
+                          sidebarOpen ? 'gap-3' : 'gap-3 lg:gap-0'
                         )}>
                           <Icon
                             className={cn(
@@ -219,7 +225,7 @@ export function Layout({ children }: LayoutProps) {
                             isActive && 'font-semibold',
                             sidebarOpen 
                               ? 'opacity-100 max-w-[200px]' 
-                              : 'lg:opacity-0 lg:max-w-0 lg:overflow-hidden'
+                              : 'opacity-100 max-w-[200px] lg:opacity-0 lg:max-w-0 lg:overflow-hidden'
                           )}>
                             {item.label}
                           </span>
@@ -239,7 +245,7 @@ export function Layout({ children }: LayoutProps) {
                                 isActive
                                   ? 'bg-accent text-foreground'
                                   : 'text-muted-foreground hover:text-foreground',
-                                sidebarOpen ? 'px-3' : 'lg:px-0 lg:justify-center'
+                                sidebarOpen ? 'px-3' : 'px-3 lg:px-0 lg:justify-center lg:w-12 lg:mx-auto'
                               )}
                               onClick={() => setMobileMenuOpen(false)}
                             >
