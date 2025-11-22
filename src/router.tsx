@@ -12,6 +12,7 @@ import { AdapterConfigPage } from './routes/config/adapter'
 import { EmojiManagementPage } from './routes/resource/emoji'
 import { ExpressionManagementPage } from './routes/resource/expression'
 import { PersonManagementPage } from './routes/person'
+import { KnowledgeGraphPage } from './routes/resource/knowledge-graph'
 import { LogViewerPage } from './routes/logs'
 import { PluginsPage } from './routes/plugins'
 import { PluginConfigPage } from './routes/plugin-config'
@@ -116,6 +117,13 @@ const personManagementRoute = createRoute({
   component: PersonManagementPage,
 })
 
+// 资源管理路由 - 知识库图谱可视化
+const knowledgeGraphRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/resource/knowledge-graph',
+  component: KnowledgeGraphPage,
+})
+
 // 日志查看器路由
 const logsRoute = createRoute({
   getParentRoute: () => protectedRoute,
@@ -171,6 +179,7 @@ const routeTree = rootRoute.addChildren([
     emojiManagementRoute,
     expressionManagementRoute,
     personManagementRoute,
+    knowledgeGraphRoute,
     pluginsRoute,
     pluginConfigRoute,
     pluginMirrorsRoute,
