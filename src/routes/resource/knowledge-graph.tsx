@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, memo, useMemo } from 'react'
+import { useState, useCallback, useEffect, memo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import ReactFlow, {
   Controls,
@@ -162,6 +162,7 @@ export function KnowledgeGraphPage() {
   const [customLimit, setCustomLimit] = useState('50')
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [showInitialConfirm, setShowInitialConfirm] = useState(true)
+  const [userConfirmedLoad, setUserConfirmedLoad] = useState(false)  // 用户是否确认加载
   const [showHighNodeWarning, setShowHighNodeWarning] = useState(false)
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
@@ -169,9 +170,6 @@ export function KnowledgeGraphPage() {
   const [selectedNodeData, setSelectedNodeData] = useState<KnowledgeNode | null>(null)
   const [selectedEdgeData, setSelectedEdgeData] = useState<{ source: KnowledgeNode; target: KnowledgeNode; edge: KnowledgeEdge } | null>(null)
   const { toast } = useToast()
-
-  // 缓存 nodeTypes 避免每次渲染都创建新对象
-  const memoizedNodeTypes = useMemo(() => nodeTypes, [])
 
   // 缓存 MiniMap 的 nodeColor 函数
   const miniMapNodeColor = useCallback((node: Node) => {
@@ -233,7 +231,8 @@ export function KnowledgeGraphPage() {
     } finally {
       setLoading(false)
     }
-  }, [nodeLimit, nodeType, setNodes, setEdges, toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeLimit, nodeType, toast])  // setNodes 和 setEdges 是稳定的,不需要包含
 
   // 搜索节点
   const handleSearch = useCallback(async () => {
@@ -280,7 +279,8 @@ export function KnowledgeGraphPage() {
         variant: 'destructive',
       })
     }
-  }, [searchQuery, setNodes, toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, toast])  // setNodes 是稳定的
 
   // 重置高亮
   const handleResetHighlight = useCallback(() => {
@@ -294,18 +294,23 @@ export function KnowledgeGraphPage() {
         },
       }))
     )
-  }, [setNodes])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])  // setNodes 是稳定的
 
   // 初始确认后加载
   const handleInitialConfirm = useCallback(() => {
     setShowInitialConfirm(false)
+    setUserConfirmedLoad(true)  // 设置用户确认标记
     loadGraph()
   }, [loadGraph])
 
   // 高节点数确认后加载
   const handleHighNodeConfirm = useCallback(() => {
-    setShowHighNodeWarning(false)
-    loadGraph(true)
+    setShowHighNodeWarning(false)  // 立即关闭高节点数警告对话框
+    // 使用 setTimeout 确保对话框关闭后再开始加载
+    setTimeout(() => {
+      loadGraph(true)
+    }, 0)
   }, [loadGraph])
 
   // 节点点击事件
@@ -324,11 +329,13 @@ export function KnowledgeGraphPage() {
   useEffect(() => {
     // 跳过初始确认对话框时的加载
     if (showInitialConfirm) return
-    // 如果有待处理的加载(警告对话框显示中),不执行
-    if (showHighNodeWarning) return
+    // 只有用户确认后才能自动刷新
+    if (!userConfirmedLoad) return
     
+    // 参数变化时加载,会根据节点数自动判断是否需要警告
     loadGraph()
-  }, [nodeLimit, nodeType, showInitialConfirm, showHighNodeWarning, loadGraph])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeLimit, nodeType, showInitialConfirm, userConfirmedLoad])  // 不依赖 loadGraph
 
   // 边点击事件
   const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
@@ -356,8 +363,6 @@ export function KnowledgeGraphPage() {
       })
     }
   }, [nodes, edges])
-  
-  console.log('渲染组件，当前状态:', { loading, nodesCount: nodes.length, edgesCount: edges.length })
 
   return (
     <div className="h-full flex flex-col">
@@ -517,7 +522,7 @@ export function KnowledgeGraphPage() {
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
             onEdgeClick={onEdgeClick}
-            nodeTypes={memoizedNodeTypes}
+            nodeTypes={nodeTypes}
             fitView
             minZoom={0.05}
             maxZoom={1.5}
@@ -670,18 +675,19 @@ export function KnowledgeGraphPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>⚠️ 节点数量较多</AlertDialogTitle>
-            <AlertDialogDescription>
-              您正在尝试加载 <strong className="text-orange-600">{nodeLimit >= 10000 ? '全部 (最多10000个)' : nodeLimit}</strong> 个节点。
-              <br />
-              <br />
-              节点数量过多可能导致:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>页面加载时间较长</li>
-                <li>浏览器卡顿或崩溃</li>
-                <li>系统资源占用过高</li>
-              </ul>
-              <br />
-              建议先选择较少的节点数量 (50-200 个)。
+            <AlertDialogDescription asChild>
+              <div>
+                <p>
+                  您正在尝试加载 <strong className="text-orange-600">{nodeLimit >= 10000 ? '全部 (最多10000个)' : nodeLimit}</strong> 个节点。
+                </p>
+                <p className="mt-4">节点数量过多可能导致:</p>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>页面加载时间较长</li>
+                  <li>浏览器卡顿或崩溃</li>
+                  <li>系统资源占用过高</li>
+                </ul>
+                <p className="mt-4">建议先选择较少的节点数量 (50-200 个)。</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
