@@ -9,7 +9,8 @@ import {
   User,
   Smile,
   Settings,
-  Zap,
+  Key,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -35,24 +36,29 @@ import type {
   PersonalityConfig,
   EmojiConfig,
   OtherBasicConfig,
+  SiliconFlowConfig,
 } from './setup/types'
 import {
   BotBasicForm,
   PersonalityForm,
   EmojiForm,
   OtherBasicForm,
+  SiliconFlowForm,
 } from './setup/StepForms'
 import {
   loadBotBasicConfig,
   loadPersonalityConfig,
   loadEmojiConfig,
   loadOtherBasicConfig,
+  loadSiliconFlowConfig,
   saveBotBasicConfig,
   savePersonalityConfig,
   saveEmojiConfig,
   saveOtherBasicConfig,
+  saveSiliconFlowConfig,
   completeSetup,
 } from './setup/api'
+import { restartMaiBot, getMaiBotStatus } from '@/lib/system-api'
 
 export function SetupPage() {
   const navigate = useNavigate()
@@ -98,9 +104,18 @@ export function SetupPage() {
     enable_tool: true,
     enable_mood: false,
     mood_update_threshold: 1,
-    emotion_style: '情绪较为稳定，但遭遇特定事件的时候起伏较大',
+    emotion_style: '情绪较为稳定，但遇遇特定事件的时候起伏较大',
     all_global: true,
   })
+
+  // 步骤5：硅基流动API配置
+  const [siliconFlow, setSiliconFlow] = useState<SiliconFlowConfig>({
+    api_key: '',
+  })
+
+  // 重启相关状态
+  const [isRestarting, setIsRestarting] = useState(false)
+  const [restartProgress, setRestartProgress] = useState('')
 
   const steps: SetupStep[] = [
     {
@@ -128,10 +143,10 @@ export function SetupPage() {
       icon: Settings,
     },
     {
-      id: 'complete',
-      title: '完成设置',
-      description: '后续配置提示',
-      icon: Zap,
+      id: 'siliconflow',
+      title: 'API配置',
+      description: '配置硅基流动API密钥',
+      icon: Key,
     },
   ]
 
@@ -144,17 +159,19 @@ export function SetupPage() {
         setIsLoading(true)
 
         // 并行加载所有配置
-        const [bot, personality, emoji, other] = await Promise.all([
+        const [bot, personality, emoji, other, silicon] = await Promise.all([
           loadBotBasicConfig(),
           loadPersonalityConfig(),
           loadEmojiConfig(),
           loadOtherBasicConfig(),
+          loadSiliconFlowConfig(),
         ])
 
         setBotBasic(bot)
         setPersonality(personality)
         setEmoji(emoji)
         setOtherBasic(other)
+        setSiliconFlow(silicon)
       } catch (error) {
         toast({
           title: '加载配置失败',
@@ -188,6 +205,9 @@ export function SetupPage() {
           break
         case 3: // 其他设置
           await saveOtherBasicConfig(otherBasic)
+          break
+        case 4: // 硅基流动API
+          await saveSiliconFlowConfig(siliconFlow)
           break
       }
 
@@ -227,29 +247,64 @@ export function SetupPage() {
 
   const handleComplete = async () => {
     setIsCompleting(true)
+    setIsRestarting(true)
 
     try {
-      // 保存最后一步的配置
+      // 1. 保存最后一步的配置(硅基流动API Key)
+      setRestartProgress('正在保存API配置...')
       const saved = await saveCurrentStep()
       if (!saved) {
         setIsCompleting(false)
+        setIsRestarting(false)
         return
       }
 
-      // 标记设置完成
+      // 2. 标记设置完成
+      setRestartProgress('正在完成初始化...')
       await completeSetup()
+
+      // 3. 触发麦麦重启
+      setRestartProgress('正在重启麦麦...')
+      await restartMaiBot()
 
       toast({
         title: '配置完成',
-        description: '所有配置已保存，正在跳转...',
+        description: '麦麦正在重启以应用新配置...',
       })
 
+      // 4. 轮询检查麦麦是否重启成功
+      setRestartProgress('等待麦麦重启完成...')
+      const maxAttempts = 60 // 最多等待60秒
+      let attempt = 0
+      let restartSuccess = false
+
+      while (attempt < maxAttempts && !restartSuccess) {
+        await new Promise(resolve => setTimeout(resolve, 1000)) // 每秒检查一次
+        
+        try {
+          const status = await getMaiBotStatus()
+          if (status.running) {
+            restartSuccess = true
+            setRestartProgress('重启成功！正在跳转...')
+          }
+        } catch {
+          // 重启过程中API会暂时不可用,这是正常的
+          attempt++
+        }
+      }
+
+      if (!restartSuccess) {
+        throw new Error('重启超时,请手动检查麦麦状态')
+      }
+
+      // 5. 导航到首页
       setTimeout(() => {
         navigate({ to: '/' })
-      }, 500)
+      }, 1000)
     } catch (error) {
+      setIsRestarting(false)
       toast({
-        title: '完成失败',
+        title: '配置失败',
         description: error instanceof Error ? error.message : '未知错误',
         variant: 'destructive',
       })
@@ -285,57 +340,7 @@ export function SetupPage() {
       case 3:
         return <OtherBasicForm config={otherBasic} onChange={setOtherBasic} />
       case 4:
-        return (
-          <div className="space-y-6 text-center py-8">
-            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Zap className="h-8 w-8 text-primary" strokeWidth={2} />
-            </div>
-            <div className="space-y-3">
-              <h3 className="text-xl font-semibold">模型配置</h3>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                为了让机器人正常工作，您需要配置 AI 模型提供商和模型。
-              </p>
-            </div>
-            <div className="rounded-lg border bg-muted/50 p-6 max-w-md mx-auto text-left space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-semibold">1</div>
-                </div>
-                <div>
-                  <p className="font-medium">配置 API 提供商</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    在"系统设置 → 模型配置 → API 提供商"中添加您的 API 提供商信息
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-semibold">2</div>
-                </div>
-                <div>
-                  <p className="font-medium">添加模型</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    在"系统设置 → 模型配置 → 模型列表"中添加需要使用的模型
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-semibold">3</div>
-                </div>
-                <div>
-                  <p className="font-medium">配置模型任务</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    在"系统设置 → 模型配置 → 模型任务配置"中为不同任务分配模型
-                  </p>
-                </div>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              💡 提示：完成向导后，您可以在系统设置中进行详细的模型配置
-            </p>
-          </div>
-        )
+        return <SiliconFlowForm config={siliconFlow} onChange={setSiliconFlow} />
       default:
         return null
     }
@@ -343,6 +348,29 @@ export function SetupPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4 md:p-6">
+      {/* 重启遮罩层 */}
+      {isRestarting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="mx-auto flex max-w-md flex-col items-center space-y-6 rounded-lg border bg-card p-8 text-center shadow-lg">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">正在重启麦麦</h2>
+              <p className="text-muted-foreground">{restartProgress}</p>
+            </div>
+            <div className="w-full">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                <div className="h-full w-full animate-pulse bg-primary" style={{ animation: 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              请稍候，这可能需要一分钟...
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* 背景装饰 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute left-1/4 top-1/4 h-64 w-64 md:h-96 md:w-96 rounded-full bg-primary/5 blur-3xl" />

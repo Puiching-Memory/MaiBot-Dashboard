@@ -1,5 +1,6 @@
 // 设置向导各步骤表单组件
 
+import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -7,13 +8,13 @@ import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { X } from 'lucide-react'
+import { X, ExternalLink, Eye, EyeOff } from 'lucide-react'
 import type {
   BotBasicConfig,
   PersonalityConfig,
   EmojiConfig,
   OtherBasicConfig,
-  ModelBasicConfig,
+  SiliconFlowConfig,
 } from './types'
 
 // ====== 步骤1：Bot基础配置 ======
@@ -448,111 +449,94 @@ export function OtherBasicForm({ config, onChange }: OtherBasicFormProps) {
   )
 }
 
-// ====== 步骤5：模型配置 ======
-interface ModelBasicFormProps {
-  config: ModelBasicConfig
-  onChange: (config: ModelBasicConfig) => void
+// ====== 步骤5：硅基流动API配置 ======
+interface SiliconFlowFormProps {
+  config: SiliconFlowConfig
+  onChange: (config: SiliconFlowConfig) => void
 }
 
-export function ModelBasicForm({ config, onChange }: ModelBasicFormProps) {
+export function SiliconFlowForm({ config, onChange }: SiliconFlowFormProps) {
+  const [showApiKey, setShowApiKey] = useState(false)
+
   return (
     <div className="space-y-6">
-      <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
-        <p>配置AI模型提供商和基础模型。更详细的模型配置请在系统设置中进行。</p>
+      <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5">
+            <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div className="flex-1 text-sm">
+            <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+              关于硅基流动 (SiliconFlow)
+            </p>
+            <p className="text-blue-700 dark:text-blue-300 mb-2">
+              硅基流动提供了完整的模型覆盖，包括 DeepSeek V3、Qwen、视觉模型、语音识别和嵌入模型。
+              只需一个 API Key 即可使用麦麦的所有功能！
+            </p>
+            <a
+              href="https://cloud.siliconflow.cn"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline font-medium"
+            >
+              前往硅基流动获取 API Key
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-3">
-        <Label htmlFor="api_provider_name">提供商名称 *</Label>
-        <Input
-          id="api_provider_name"
-          placeholder="例如：DeepSeek、OpenAI、SiliconFlow"
-          value={config.api_provider_name}
-          onChange={(e) =>
-            onChange({ ...config, api_provider_name: e.target.value })
-          }
-        />
+        <Label htmlFor="siliconflow_api_key">SiliconFlow API Key *</Label>
+        <div className="relative">
+          <Input
+            id="siliconflow_api_key"
+            type={showApiKey ? 'text' : 'password'}
+            placeholder="sk-..."
+            value={config.api_key}
+            onChange={(e) => onChange({ api_key: e.target.value })}
+            className="font-mono pr-10"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+            onClick={() => setShowApiKey(!showApiKey)}
+          >
+            {showApiKey ? (
+              <EyeOff className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <Eye className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
+        </div>
         <p className="text-xs text-muted-foreground">
-          API提供商的名称，用于标识
+          请输入您的硅基流动 API 密钥。获取后，麦麦将自动配置所有必需的模型。
         </p>
       </div>
 
-      <div className="space-y-3">
-        <Label htmlFor="api_provider_base_url">API地址 *</Label>
-        <Input
-          id="api_provider_base_url"
-          placeholder="例如：https://api.deepseek.com/v1"
-          value={config.api_provider_base_url}
-          onChange={(e) =>
-            onChange({ ...config, api_provider_base_url: e.target.value })
-          }
-        />
-        <p className="text-xs text-muted-foreground">
-          API的基础URL地址
-        </p>
+      <div className="rounded-lg bg-muted/50 p-4 text-sm space-y-2">
+        <p className="font-medium">将自动配置以下模型：</p>
+        <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-2">
+          <li>DeepSeek V3 - 主要对话和工具模型</li>
+          <li>Qwen3 30B - 高频小任务和工具调用</li>
+          <li>Qwen3 VL 30B - 图像识别</li>
+          <li>SenseVoice - 语音识别</li>
+          <li>BGE-M3 - 文本嵌入</li>
+          <li>知识库相关模型 (LPMM)</li>
+        </ul>
       </div>
 
-      <div className="space-y-3">
-        <Label htmlFor="api_provider_api_key">API密钥 *</Label>
-        <Input
-          id="api_provider_api_key"
-          type="password"
-          placeholder="请输入API密钥"
-          value={config.api_provider_api_key}
-          onChange={(e) =>
-            onChange({ ...config, api_provider_api_key: e.target.value })
-          }
-        />
-        <p className="text-xs text-muted-foreground">
-          API访问密钥，请妥善保管
-        </p>
-      </div>
-
-      <Separator />
-
-      <div className="space-y-3">
-        <Label htmlFor="replyer_model">回复模型 *</Label>
-        <Input
-          id="replyer_model"
-          placeholder="例如：deepseek-chat"
-          value={config.replyer_model}
-          onChange={(e) =>
-            onChange({ ...config, replyer_model: e.target.value })
-          }
-        />
-        <p className="text-xs text-muted-foreground">
-          用于生成回复的主要模型
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <Label htmlFor="planner_model">决策模型 *</Label>
-        <Input
-          id="planner_model"
-          placeholder="例如：deepseek-chat"
-          value={config.planner_model}
-          onChange={(e) =>
-            onChange({ ...config, planner_model: e.target.value })
-          }
-        />
-        <p className="text-xs text-muted-foreground">
-          用于决定何时回复的模型
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <Label htmlFor="utils_model">工具模型 *</Label>
-        <Input
-          id="utils_model"
-          placeholder="例如：deepseek-chat"
-          value={config.utils_model}
-          onChange={(e) =>
-            onChange({ ...config, utils_model: e.target.value })
-          }
-        />
-        <p className="text-xs text-muted-foreground">
-          用于各种辅助功能的模型
+      <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4">
+        <p className="text-sm text-amber-900 dark:text-amber-100">
+          <span className="font-medium">💡 提示：</span>
+          完成向导后，您可以在"系统设置 → 模型配置"中添加更多 API 提供商和模型。
         </p>
       </div>
     </div>
   )
 }
+

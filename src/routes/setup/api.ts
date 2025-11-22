@@ -6,7 +6,7 @@ import type {
   PersonalityConfig,
   EmojiConfig,
   OtherBasicConfig,
-  ModelBasicConfig,
+  SiliconFlowConfig,
 } from './types'
 
 // ===== 读取配置 =====
@@ -107,8 +107,8 @@ export async function loadOtherBasicConfig(): Promise<OtherBasicConfig> {
   }
 }
 
-// 读取模型配置
-export async function loadModelBasicConfig(): Promise<ModelBasicConfig> {
+// 读取硅基流动API配置
+export async function loadSiliconFlowConfig(): Promise<SiliconFlowConfig> {
   const response = await fetchWithAuth('/api/webui/config/model', {
     method: 'GET',
     headers: getAuthHeaders(),
@@ -121,23 +121,14 @@ export async function loadModelBasicConfig(): Promise<ModelBasicConfig> {
   const data = await response.json()
   const modelConfig = data.config
 
-  // 获取第一个API提供商作为默认值
+  // 获取SiliconFlow提供商的API Key
   const apiProviders = modelConfig.api_providers || []
-  const firstProvider = apiProviders[0] || {}
-
-  // 获取model_task_config
-  const taskConfig = modelConfig.model_task_config || {}
-  const replyerConfig = taskConfig.replyer || {}
-  const plannerConfig = taskConfig.planner || {}
-  const utilsConfig = taskConfig.utils || {}
+  const siliconFlowProvider = apiProviders.find(
+    (p: Record<string, unknown>) => p.name === 'SiliconFlow'
+  )
 
   return {
-    api_provider_name: firstProvider.name || '',
-    api_provider_base_url: firstProvider.base_url || '',
-    api_provider_api_key: firstProvider.api_key || '',
-    replyer_model: replyerConfig.model_list?.[0] || '',
-    planner_model: plannerConfig.model_list?.[0] || '',
-    utils_model: utilsConfig.model_list?.[0] || '',
+    api_key: siliconFlowProvider?.api_key || '',
   }
 }
 
@@ -241,95 +232,50 @@ export async function saveOtherBasicConfig(config: OtherBasicConfig) {
   return { success: true }
 }
 
-// 保存模型配置
-export async function saveModelBasicConfig(config: ModelBasicConfig) {
-  // 1. 先保存API提供商
-  const providerResponse = await fetchWithAuth('/api/webui/config/model', {
+// 保存硅基流动API配置
+export async function saveSiliconFlowConfig(config: SiliconFlowConfig) {
+  // 1. 读取现有配置
+  const response = await fetchWithAuth('/api/webui/config/model', {
     method: 'GET',
     headers: getAuthHeaders(),
   })
 
-  if (!providerResponse.ok) {
+  if (!response.ok) {
     throw new Error('读取模型配置失败')
   }
 
-  const currentModelConfig = await providerResponse.json()
+  const currentModelConfig = await response.json()
   const modelConfig = currentModelConfig.config
 
-  // 检查是否已存在同名提供商
+  // 2. 更新SiliconFlow提供商的API Key
   const apiProviders = modelConfig.api_providers || []
-  const existingProviderIndex = apiProviders.findIndex(
-    (p: Record<string, unknown>) => p.name === config.api_provider_name
+  const siliconFlowIndex = apiProviders.findIndex(
+    (p: Record<string, unknown>) => p.name === 'SiliconFlow'
   )
 
-  const newProvider = {
-    name: config.api_provider_name,
-    base_url: config.api_provider_base_url,
-    api_key: config.api_provider_api_key,
-    client_type: 'openai', // 默认使用openai兼容客户端
-    max_retry: 2,
-    timeout: 120,
-    retry_interval: 10,
-  }
-
-  if (existingProviderIndex >= 0) {
-    // 更新现有提供商
-    apiProviders[existingProviderIndex] = newProvider
+  if (siliconFlowIndex >= 0) {
+    // 更新现有提供商的API Key
+    apiProviders[siliconFlowIndex] = {
+      ...apiProviders[siliconFlowIndex],
+      api_key: config.api_key,
+    }
   } else {
-    // 添加新提供商
-    apiProviders.push(newProvider)
+    // 如果不存在,创建新的SiliconFlow提供商
+    apiProviders.push({
+      name: 'SiliconFlow',
+      base_url: 'https://api.siliconflow.cn/v1',
+      api_key: config.api_key,
+      client_type: 'openai',
+      max_retry: 3,
+      timeout: 120,
+      retry_interval: 5,
+    })
   }
 
-  // 2. 保存模型配置
-  const models = modelConfig.models || []
-
-  // 添加基础模型（如果不存在）
-  const modelNames = [config.replyer_model, config.planner_model, config.utils_model]
-  for (const modelName of modelNames) {
-    if (modelName && !models.find((m: Record<string, unknown>) => m.name === modelName)) {
-      models.push({
-        model_identifier: modelName,
-        name: modelName,
-        api_provider: config.api_provider_name,
-        price_in: 0,
-        price_out: 0,
-      })
-    }
-  }
-
-  // 3. 更新model_task_config
-  const modelTaskConfig = modelConfig.model_task_config || {}
-
-  if (config.replyer_model) {
-    modelTaskConfig.replyer = {
-      model_list: [config.replyer_model],
-      temperature: 0.7,
-      max_tokens: 2048,
-    }
-  }
-
-  if (config.planner_model) {
-    modelTaskConfig.planner = {
-      model_list: [config.planner_model],
-      temperature: 0.3,
-      max_tokens: 800,
-    }
-  }
-
-  if (config.utils_model) {
-    modelTaskConfig.utils = {
-      model_list: [config.utils_model],
-      temperature: 0.2,
-      max_tokens: 2048,
-    }
-  }
-
-  // 4. 保存完整配置
+  // 3. 保存更新后的配置
   const updatedConfig = {
     ...modelConfig,
     api_providers: apiProviders,
-    models: models,
-    model_task_config: modelTaskConfig,
   }
 
   const saveResponse = await fetchWithAuth('/api/webui/config/model', {

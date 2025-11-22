@@ -1,4 +1,4 @@
-import apiClient from './api'
+import { fetchWithAuth, getAuthHeaders } from './fetch-with-auth'
 
 /**
  * 系统控制 API
@@ -8,13 +8,17 @@ import apiClient from './api'
  * 重启麦麦主程序
  */
 export async function restartMaiBot(): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await apiClient.post('/api/webui/system/restart')
-    return response.data
-  } catch (error) {
-    console.error('重启麦麦失败:', error)
-    throw error
+  const response = await fetchWithAuth('/api/webui/system/restart', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '重启失败')
   }
+  
+  return await response.json()
 }
 
 /**
@@ -24,12 +28,17 @@ export async function getMaiBotStatus(): Promise<{
   running: boolean
   uptime: number
   version: string
+  start_time: string
 }> {
-  try {
-    const response = await apiClient.get('/api/webui/system/status')
-    return response.data
-  } catch (error) {
-    console.error('获取麦麦状态失败:', error)
-    throw error
+  const response = await fetchWithAuth('/api/webui/system/status', {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '获取状态失败')
   }
+  
+  return await response.json()
 }

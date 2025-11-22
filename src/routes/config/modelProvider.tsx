@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,13 +37,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, Pencil, Trash2, Save, Eye, EyeOff, Copy, Search, Info, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, Eye, EyeOff, Copy, Search, Info, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Check, ChevronsUpDown } from 'lucide-react'
 import { getModelConfig, updateModelConfig, updateModelConfigSection } from '@/lib/config-api'
 import { restartMaiBot } from '@/lib/system-api'
 import { useToast } from '@/hooks/use-toast'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { RestartingOverlay } from '@/components/RestartingOverlay'
+import { PROVIDER_TEMPLATES } from './providerTemplates'
 
 interface APIProvider {
   name: string
@@ -66,6 +80,8 @@ export function ModelProviderConfigPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingProvider, setEditingProvider] = useState<APIProvider | null>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('custom')
+  const [templateComboboxOpen, setTemplateComboboxOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingIndex, setDeletingIndex] = useState<number | null>(null)
   const [showApiKey, setShowApiKey] = useState(false)
@@ -240,8 +256,17 @@ export function ModelProviderConfigPage() {
 
   // 打开编辑对话框
   const openEditDialog = (provider: APIProvider | null, index: number | null) => {
-    setEditingProvider(
-      provider || {
+    if (provider) {
+      // 编辑现有提供商 - 检测匹配的模板
+      const matchedTemplate = PROVIDER_TEMPLATES.find(
+        t => t.base_url === provider.base_url && t.client_type === provider.client_type
+      )
+      setSelectedTemplate(matchedTemplate?.id || 'custom')
+      setEditingProvider(provider)
+    } else {
+      // 新建提供商 - 默认使用自定义模板
+      setSelectedTemplate('custom')
+      setEditingProvider({
         name: '',
         base_url: '',
         api_key: '',
@@ -249,12 +274,41 @@ export function ModelProviderConfigPage() {
         max_retry: 2,
         timeout: 30,
         retry_interval: 10,
-      }
-    )
+      })
+    }
     setEditingIndex(index)
     setShowApiKey(false)
     setEditDialogOpen(true)
   }
+  
+  // 处理模板选择变化
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplate(templateId)
+    setTemplateComboboxOpen(false)
+    const template = PROVIDER_TEMPLATES.find(t => t.id === templateId)
+    if (template && template.id !== 'custom') {
+      // 应用模板配置
+      setEditingProvider(prev => ({
+        ...prev!,
+        name: template.name,
+        base_url: template.base_url,
+        client_type: template.client_type,
+      }))
+    } else if (template?.id === 'custom') {
+      // 切换到自定义模板 - 清空URL和客户端类型(保留其他字段)
+      setEditingProvider(prev => ({
+        ...prev!,
+        name: '',
+        base_url: '',
+        client_type: 'openai',
+      }))
+    }
+  }
+  
+  // 判断当前是否使用模板(非自定义)
+  const isUsingTemplate = useMemo(() => {
+    return selectedTemplate !== 'custom'
+  }, [selectedTemplate])
 
   // 复制 API Key
   const copyApiKey = async () => {
@@ -754,6 +808,54 @@ export function ModelProviderConfigPage() {
 
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
+              <Label htmlFor="template">提供商模板</Label>
+              <Popover open={templateComboboxOpen} onOpenChange={setTemplateComboboxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={templateComboboxOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedTemplate
+                      ? PROVIDER_TEMPLATES.find((template) => template.id === selectedTemplate)?.display_name
+                      : "选择提供商模板..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                  <Command>
+                    <CommandInput placeholder="搜索提供商模板..." />
+                    <ScrollArea className="h-[300px]">
+                      <CommandList className="max-h-none overflow-visible">
+                        <CommandEmpty>未找到匹配的模板</CommandEmpty>
+                        <CommandGroup>
+                          {PROVIDER_TEMPLATES.map((template) => (
+                            <CommandItem
+                              key={template.id}
+                              value={template.display_name}
+                              onSelect={() => handleTemplateChange(template.id)}
+                            >
+                              <Check
+                                className={`mr-2 h-4 w-4 ${
+                                  selectedTemplate === template.id ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                              {template.display_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </ScrollArea>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                选择预设模板可自动填充 URL 和客户端类型,支持搜索
+              </p>
+            </div>
+
+            <div className="grid gap-2">
               <Label htmlFor="name">名称 *</Label>
               <Input
                 id="name"
@@ -778,7 +880,14 @@ export function ModelProviderConfigPage() {
                   )
                 }
                 placeholder="https://api.example.com/v1"
+                disabled={isUsingTemplate}
+                className={isUsingTemplate ? 'bg-muted cursor-not-allowed' : ''}
               />
+              {isUsingTemplate && (
+                <p className="text-xs text-muted-foreground">
+                  使用模板时 URL 不可编辑,切换到"自定义"以手动配置
+                </p>
+              )}
             </div>
 
             <div className="grid gap-2">
@@ -830,8 +939,9 @@ export function ModelProviderConfigPage() {
                     prev ? { ...prev, client_type: value } : null
                   )
                 }
+                disabled={isUsingTemplate}
               >
-                <SelectTrigger id="client_type">
+                <SelectTrigger id="client_type" className={isUsingTemplate ? 'bg-muted cursor-not-allowed' : ''}>
                   <SelectValue placeholder="选择客户端类型" />
                 </SelectTrigger>
                 <SelectContent>
@@ -839,6 +949,11 @@ export function ModelProviderConfigPage() {
                   <SelectItem value="gemini">Gemini</SelectItem>
                 </SelectContent>
               </Select>
+              {isUsingTemplate && (
+                <p className="text-xs text-muted-foreground">
+                  使用模板时客户端类型不可编辑,切换到"自定义"以手动配置
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

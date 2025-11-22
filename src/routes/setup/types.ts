@@ -43,12 +43,7 @@ export interface OtherBasicConfig {
   all_global: boolean
 }
 
-// 步骤5：模型配置
-export interface ModelBasicConfig {
-  api_provider_name: string
-  api_provider_base_url: string
-  api_provider_api_key: string
-  replyer_model: string
-  planner_model: string
-  utils_model: string
+// 步骤5：硅基流动API配置
+export interface SiliconFlowConfig {
+  api_key: string
 }
