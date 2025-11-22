@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, memo, useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import ReactFlow, {
   Controls,
@@ -56,7 +56,7 @@ import { getKnowledgeGraph, getKnowledgeStats, searchKnowledgeNode, type Knowled
 import { cn } from '@/lib/utils'
 
 // 自定义节点组件 - 实体节点
-function EntityNode({ data }: { data: { label: string; content: string } }) {
+const EntityNode = memo(({ data }: { data: { label: string; content: string } }) => {
   return (
     <div className="px-4 py-2 shadow-md rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 border-2 border-blue-700 min-w-[120px]">
       <Handle type="target" position={Position.Top} />
@@ -66,10 +66,12 @@ function EntityNode({ data }: { data: { label: string; content: string } }) {
       <Handle type="source" position={Position.Bottom} />
     </div>
   )
-}
+})
+
+EntityNode.displayName = 'EntityNode'
 
 // 自定义节点组件 - 段落节点
-function ParagraphNode({ data }: { data: { label: string; content: string } }) {
+const ParagraphNode = memo(({ data }: { data: { label: string; content: string } }) => {
   return (
     <div className="px-3 py-2 shadow-md rounded-md bg-gradient-to-br from-green-500 to-green-600 border-2 border-green-700 min-w-[100px]">
       <Handle type="target" position={Position.Top} />
@@ -79,7 +81,9 @@ function ParagraphNode({ data }: { data: { label: string; content: string } }) {
       <Handle type="source" position={Position.Bottom} />
     </div>
   )
-}
+})
+
+ParagraphNode.displayName = 'ParagraphNode'
 
 const nodeTypes: NodeTypes = {
   entity: EntityNode,
@@ -131,13 +135,15 @@ function calculateLayout(nodes: KnowledgeNode[], edges: KnowledgeEdge[]): { node
       id: `edge-${index}`,
       source: edge.source,
       target: edge.target,
-      animated: edge.weight > 5,
+      // 节点数超过200时禁用动画提升性能
+      animated: nodes.length <= 200 && edge.weight > 5,
       style: {
         strokeWidth: Math.min(edge.weight / 2, 5),
         opacity: 0.6,
       },
     }
-    if (edge.weight > 10) {
+    // 只在节点数少于100时显示边的标签
+    if (edge.weight > 10 && nodes.length < 100) {
       flowEdge.label = `${edge.weight.toFixed(0)}`
     }
     flowEdges.push(flowEdge)
@@ -159,9 +165,20 @@ export function KnowledgeGraphPage() {
   const [showHighNodeWarning, setShowHighNodeWarning] = useState(false)
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
+  const [nodeCount, setNodeCount] = useState(0)
   const [selectedNodeData, setSelectedNodeData] = useState<KnowledgeNode | null>(null)
   const [selectedEdgeData, setSelectedEdgeData] = useState<{ source: KnowledgeNode; target: KnowledgeNode; edge: KnowledgeEdge } | null>(null)
   const { toast } = useToast()
+
+  // 缓存 nodeTypes 避免每次渲染都创建新对象
+  const memoizedNodeTypes = useMemo(() => nodeTypes, [])
+
+  // 缓存 MiniMap 的 nodeColor 函数
+  const miniMapNodeColor = useCallback((node: Node) => {
+    if (node.type === 'entity') return '#6366f1'
+    if (node.type === 'paragraph') return '#10b981'
+    return '#6b7280'
+  }, [])
 
   // 加载知识图谱数据
   const loadGraph = useCallback(async (skipWarning = false) => {
@@ -193,6 +210,7 @@ export function KnowledgeGraphPage() {
       const { nodes: flowNodes, edges: flowEdges } = calculateLayout(graphData.nodes, graphData.edges)
       setNodes(flowNodes)
       setEdges(flowEdges)
+      setNodeCount(flowNodes.length)
 
       if (statsData && statsData.total_nodes > nodeLimit) {
         toast({
@@ -499,19 +517,26 @@ export function KnowledgeGraphPage() {
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
             onEdgeClick={onEdgeClick}
-            nodeTypes={nodeTypes}
+            nodeTypes={memoizedNodeTypes}
             fitView
+            minZoom={0.05}
+            maxZoom={1.5}
+            defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+            elevateNodesOnSelect={nodeCount <= 500}
+            nodesDraggable={nodeCount <= 1000}
             attributionPosition="bottom-left"
           >
             <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
             <Controls />
-            <MiniMap
-              nodeColor={(node) => {
-                if (node.type === 'entity') return '#6366f1'
-                if (node.type === 'paragraph') return '#10b981'
-                return '#6b7280'
-              }}
-            />
+            {/* 节点数超过500时禁用MiniMap提升性能 */}
+            {nodeCount <= 500 && (
+              <MiniMap
+                nodeColor={miniMapNodeColor}
+                nodeBorderRadius={8}
+                pannable
+                zoomable
+              />
+            )}
 
             {/* 图例 */}
             <Panel position="top-right" className="bg-background/95 backdrop-blur-sm rounded-lg border p-3 shadow-lg">
@@ -525,6 +550,13 @@ export function KnowledgeGraphPage() {
                   <div className="w-4 h-4 rounded bg-gradient-to-br from-green-500 to-green-600 border-2 border-green-700" />
                   <span>段落节点</span>
                 </div>
+                {nodeCount > 200 && (
+                  <div className="mt-2 pt-2 border-t text-yellow-600 dark:text-yellow-500">
+                    <div className="font-semibold">性能模式</div>
+                    <div>已禁用动画</div>
+                    {nodeCount > 500 && <div>已禁用缩略图</div>}
+                  </div>
+                )}
               </div>
             </Panel>
           </ReactFlow>
