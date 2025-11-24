@@ -523,11 +523,19 @@ export function ModelProviderConfigPage() {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>确认重启麦麦？</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {hasUnsavedChanges 
-                    ? '当前有未保存的配置更改。点击确认将先保存配置，然后重启麦麦使新配置生效。重启过程中麦麦将暂时离线。'
-                    : '即将重启麦麦主程序。重启过程中麦麦将暂时离线，配置将在重启后生效。'
-                  }
+                <AlertDialogDescription className="space-y-3">
+                  <p>
+                    {hasUnsavedChanges 
+                      ? '当前有未保存的配置更改。点击确认将先保存配置,然后重启麦麦使新配置生效。重启过程中麦麦将暂时离线。'
+                      : '即将重启麦麦主程序。重启过程中麦麦将暂时离线,配置将在重启后生效。'
+                    }
+                  </p>
+                  <Alert className="border-yellow-500/50 bg-yellow-500/10">
+                    <Info className="h-4 w-4 text-yellow-600" />
+                    <AlertDescription className="text-yellow-900 dark:text-yellow-100">
+                      <strong>重要提示:</strong>由于技术原因,使用重启功能后,将无法再使用 <code className="px-1 py-0.5 bg-yellow-200 dark:bg-yellow-900 rounded">Ctrl+C</code> 结束程序。如需结束程序,请使用脚本目录下的进程管理脚本。
+                    </AlertDescription>
+                  </Alert>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
