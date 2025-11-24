@@ -1168,7 +1168,14 @@ function EmojiEditDialog({
               <Checkbox
                 id="is_registered"
                 checked={isRegistered}
-                onCheckedChange={(checked) => setIsRegistered(checked === true)}
+                onCheckedChange={(checked) => {
+                  if (checked === true) {
+                    setIsRegistered(true)
+                    setIsBanned(false) // 注册时自动取消封禁
+                  } else {
+                    setIsRegistered(false)
+                  }
+                }}
               />
               <Label htmlFor="is_registered" className="cursor-pointer">
                 已注册
@@ -1179,7 +1186,14 @@ function EmojiEditDialog({
               <Checkbox
                 id="is_banned"
                 checked={isBanned}
-                onCheckedChange={(checked) => setIsBanned(checked === true)}
+                onCheckedChange={(checked) => {
+                  if (checked === true) {
+                    setIsBanned(true)
+                    setIsRegistered(false) // 封禁时自动取消注册
+                  } else {
+                    setIsBanned(false)
+                  }
+                }}
               />
               <Label htmlFor="is_banned" className="cursor-pointer">
                 已封禁

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Info, Upload, Download, FileText, Trash2, FolderOpen, Save, RefreshCw } from 'lucide-react'
+import { Info, Upload, Download, FileText, Trash2, FolderOpen, Save, RefreshCw, Package, Container } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -108,18 +108,37 @@ const DEFAULT_CONFIG: AdapterConfig = {
   },
 }
 
+// 预设配置
+const PRESETS = {
+  oneclick: {
+    name: '一键包',
+    description: '使用一键包部署的适配器配置',
+    path: '../MaiBot-Napcat-Adapter/config.toml',
+    icon: Package,
+  },
+  docker: {
+    name: 'Docker',
+    description: 'Docker Compose 部署的适配器配置',
+    path: './docker-config/adapters/config.toml',
+    icon: Container,
+  },
+} as const
+
+type PresetKey = keyof typeof PRESETS
+
 export function AdapterConfigPage() {
-  // 工作模式：'upload' = 上传文件模式, 'path' = 指定路径模式
-  const [mode, setMode] = useState<'upload' | 'path'>('upload')
+  // 工作模式：'upload' = 上传文件模式, 'path' = 指定路径模式, 'preset' = 预设模式
+  const [mode, setMode] = useState<'upload' | 'path' | 'preset'>('upload')
   const [config, setConfig] = useState<AdapterConfig | null>(null)
   const [fileName, setFileName] = useState<string>('')
   const [configPath, setConfigPath] = useState<string>('')
+  const [selectedPreset, setSelectedPreset] = useState<PresetKey>('oneclick')
   const [pathError, setPathError] = useState<string>('')
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [showModeSwitchDialog, setShowModeSwitchDialog] = useState(false)
   const [showClearPathDialog, setShowClearPathDialog] = useState(false)
-  const [pendingMode, setPendingMode] = useState<'upload' | 'path' | null>(null)
+  const [pendingMode, setPendingMode] = useState<'upload' | 'path' | 'preset' | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const saveTimeoutRef = useRef<number | null>(null)
@@ -130,26 +149,31 @@ export function AdapterConfigPage() {
       return { valid: false, error: '路径不能为空' }
     }
 
-    // Windows 路径: C:\path\to\file.toml 或 \\server\share\file.toml
-    const windowsPathRegex = /^([a-zA-Z]:\\|\\\\[^\\]+\\[^\\]+\\).+\.toml$/i
-    // Linux/Unix 路径: /path/to/file.toml 或 ~/path/to/file.toml
-    const unixPathRegex = /^(\/|~\/).+\.toml$/i
-
-    const isWindows = windowsPathRegex.test(path)
-    const isUnix = unixPathRegex.test(path)
-
-    if (!isWindows && !isUnix) {
-      return {
-        valid: false,
-        error: '路径格式错误。Windows: C:\\path\\file.toml，Linux: /path/file.toml',
-      }
-    }
-
     if (!path.toLowerCase().endsWith('.toml')) {
       return { valid: false, error: '文件必须是 .toml 格式' }
     }
 
+    // 支持相对路径和绝对路径
+    // Windows 绝对路径: C:\path\to\file.toml 或 \\server\share\file.toml
+    const windowsPathRegex = /^([a-zA-Z]:\\|\\\\[^\\]+\\[^\\]+\\).+\.toml$/i
+    // Linux/Unix 绝对路径: /path/to/file.toml 或 ~/path/to/file.toml
+    const unixPathRegex = /^(\/|~\/).+\.toml$/i
+    // 相对路径: ./path/to/file.toml 或 ../path/to/file.toml 或 path/to/file.toml
+    const relativePathRegex = /^(\.{1,2}[\\/]|[^:\\/]).+\.toml$/i
+
+    const isWindows = windowsPathRegex.test(path)
+    const isUnix = unixPathRegex.test(path)
+    const isRelative = relativePathRegex.test(path)
+
+    if (!isWindows && !isUnix && !isRelative) {
+      return {
+        valid: false,
+        error: '路径格式错误',
+      }
+    }
+
     // 检查路径中是否包含非法字符
+    // eslint-disable-next-line no-control-regex
     const illegalChars = /[<>"|?*\x00-\x1F]/
     if (illegalChars.test(path)) {
       return { valid: false, error: '路径包含非法字符' }
@@ -171,26 +195,38 @@ export function AdapterConfigPage() {
     }
   }
 
-  // 组件挂载时加载保存的路径
-  useEffect(() => {
-    const loadSavedPath = async () => {
-      try {
-        const savedPath = await getSavedConfigPath()
-        if (savedPath && savedPath.path) {
-          setConfigPath(savedPath.path)
-          setMode('path')
-          // 自动加载配置
-          await handleLoadFromPath(savedPath.path)
-        }
-      } catch (error) {
-        console.error('加载保存的路径失败:', error)
-      }
+  // 从预设加载配置
+  const handleLoadFromPreset = useCallback(async (presetKey: PresetKey) => {
+    const preset = PRESETS[presetKey]
+    setIsLoading(true)
+    try {
+      const content = await loadConfigFromPath(preset.path)
+      const parsedConfig = parseTOML(content)
+      setConfig(parsedConfig)
+      setSelectedPreset(presetKey)
+      setConfigPath(preset.path)
+      
+      // 保存路径偏好
+      await saveConfigPath(preset.path)
+      
+      toast({
+        title: '加载成功',
+        description: `已从${preset.name}预设加载配置`,
+      })
+    } catch (error) {
+      console.error('加载预设配置失败:', error)
+      toast({
+        title: '加载失败',
+        description: error instanceof Error ? error.message : '无法读取预设配置文件',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
     }
-    loadSavedPath()
-  }, [])
+  }, [toast])
 
   // 从指定路径加载配置
-  const handleLoadFromPath = async (path: string) => {
+  const handleLoadFromPath = useCallback(async (path: string) => {
     // 验证路径
     const validation = validatePath(path)
     if (!validation.valid) {
@@ -228,11 +264,37 @@ export function AdapterConfigPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [toast])
+
+  // 组件挂载时加载保存的路径
+  useEffect(() => {
+    const loadSavedPath = async () => {
+      try {
+        const savedPath = await getSavedConfigPath()
+        if (savedPath && savedPath.path) {
+          setConfigPath(savedPath.path)
+          
+          // 检查是否是预设路径
+          const presetEntry = Object.entries(PRESETS).find(([, preset]) => preset.path === savedPath.path)
+          if (presetEntry) {
+            setMode('preset')
+            setSelectedPreset(presetEntry[0] as PresetKey)
+            await handleLoadFromPreset(presetEntry[0] as PresetKey)
+          } else {
+            setMode('path')
+            await handleLoadFromPath(savedPath.path)
+          }
+        }
+      } catch (error) {
+        console.error('加载保存的路径失败:', error)
+      }
+    }
+    loadSavedPath()
+  }, [handleLoadFromPath, handleLoadFromPreset])
 
   // 自动保存配置到路径（防抖）
   const autoSaveToPath = useCallback((updatedConfig: AdapterConfig) => {
-    if (mode !== 'path' || !configPath) return
+    if ((mode !== 'path' && mode !== 'preset') || !configPath) return
 
     // 清除之前的定时器
     if (saveTimeoutRef.current) {
@@ -304,7 +366,7 @@ export function AdapterConfigPage() {
   }
 
   // 切换模式
-  const handleModeChange = (newMode: 'upload' | 'path') => {
+  const handleModeChange = (newMode: 'upload' | 'path' | 'preset') => {
     if (newMode === mode) return
     
     // 如果有未保存的配置，显示确认对话框
@@ -319,15 +381,26 @@ export function AdapterConfigPage() {
   }
 
   // 执行模式切换
-  const performModeSwitch = (newMode: 'upload' | 'path') => {
+  const performModeSwitch = (newMode: 'upload' | 'path' | 'preset') => {
     setConfig(null)
     setFileName('')
     setPathError('')
     setMode(newMode)
     
+    // 如果切换到预设模式，自动加载默认预设
+    if (newMode === 'preset') {
+      handleLoadFromPreset('oneclick')
+    }
+    
+    const modeNames = {
+      upload: '现在可以上传配置文件',
+      path: '现在可以指定配置文件路径',
+      preset: '现在可以使用预设配置',
+    }
+    
     toast({
       title: '已切换模式',
-      description: newMode === 'upload' ? '现在可以上传配置文件' : '现在可以指定配置文件路径',
+      description: modeNames[newMode],
     })
   }
 
@@ -378,8 +451,8 @@ export function AdapterConfigPage() {
       const trimmed = line.trim()
       if (!trimmed || trimmed.startsWith('#')) continue
 
-      // 检测节
-      const sectionMatch = trimmed.match(/^\[(\w+)\]$/)
+      // 检测节（支持带注释的节头）
+      const sectionMatch = trimmed.match(/^\[(\w+)\]/)
       if (sectionMatch) {
         currentSection = sectionMatch[1]
         continue
@@ -389,7 +462,23 @@ export function AdapterConfigPage() {
       const kvMatch = trimmed.match(/^(\w+)\s*=\s*(.+)$/)
       if (kvMatch && currentSection) {
         const [, key, value] = kvMatch
-        const cleanValue = value.trim()
+        let cleanValue = value.trim()
+        
+        // 移除行内注释（处理所有情况）
+        // 1. 对于引号字符串: "value" # comment -> "value"
+        // 2. 对于数字/布尔值: 123 # comment -> 123
+        // 3. 对于数组: [1,2,3] # comment -> [1,2,3]
+        const quotedMatch = cleanValue.match(/^("[^"]*")/)
+        if (quotedMatch) {
+          // 引号字符串，只保留引号部分
+          cleanValue = quotedMatch[1]
+        } else {
+          // 非引号值，移除 # 及其后的所有内容
+          const commentIndex = cleanValue.indexOf('#')
+          if (commentIndex !== -1) {
+            cleanValue = cleanValue.substring(0, commentIndex).trim()
+          }
+        }
 
         // 解析值
         let parsedValue: string | number | boolean | number[]
@@ -575,7 +664,27 @@ export function AdapterConfigPage() {
             <CardDescription>选择配置文件的管理方式</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+              {/* 预设模式 */}
+              <div
+                className={`border-2 rounded-lg p-3 md:p-4 cursor-pointer transition-all ${
+                  mode === 'preset'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted hover:border-primary/50 active:border-primary/70'
+                }`}
+                onClick={() => handleModeChange('preset')}
+              >
+                <div className="flex items-start gap-2 md:gap-3">
+                  <Package className="h-4 w-4 md:h-5 md:w-5 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-sm md:text-base">预设模式</h3>
+                    <p className="text-xs md:text-sm text-muted-foreground mt-1 line-clamp-2">
+                      使用预设的部署配置
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* 上传模式 */}
               <div
                 className={`border-2 rounded-lg p-3 md:p-4 cursor-pointer transition-all ${
@@ -616,6 +725,46 @@ export function AdapterConfigPage() {
                 </div>
               </div>
             </div>
+
+            {/* 预设模式配置 */}
+            {mode === 'preset' && (
+              <div className="space-y-3 pt-2 border-t">
+                <Label className="text-sm md:text-base">选择部署方式</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {Object.entries(PRESETS).map(([key, preset]) => {
+                    const Icon = preset.icon
+                    const isSelected = selectedPreset === key
+                    return (
+                      <div
+                        key={key}
+                        className={`border-2 rounded-lg p-3 cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-primary bg-primary/5'
+                            : 'border-muted hover:border-primary/50'
+                        }`}
+                        onClick={() => {
+                          setSelectedPreset(key as PresetKey)
+                          handleLoadFromPreset(key as PresetKey)
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-semibold text-sm">{preset.name}</h4>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {preset.description}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1 font-mono break-all">
+                              {preset.path}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* 路径模式配置 */}
             {mode === 'path' && (
@@ -697,7 +846,11 @@ export function AdapterConfigPage() {
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            {mode === 'upload' ? (
+            {mode === 'preset' ? (
+              <>
+                <strong>预设模式：</strong>选择预设的部署方式，配置会自动加载，修改后 1 秒自动保存{isSaving && ' (正在保存...)'}
+              </>
+            ) : mode === 'upload' ? (
               <>
                 <strong>上传文件模式：</strong>上传配置文件 → 在线编辑 → 下载文件 → 手动覆盖并重启适配器
               </>
@@ -745,8 +898,8 @@ export function AdapterConfigPage() {
           </div>
         )}
 
-        {/* 路径模式的操作按钮 */}
-        {mode === 'path' && config && (
+        {/* 预设和路径模式的操作按钮 */}
+        {(mode === 'preset' || mode === 'path') && config && (
           <div className="flex flex-col sm:flex-row gap-2">
             <Button onClick={handleManualSave} size="sm" disabled={isSaving || !!pathError} className="w-full sm:w-auto">
               <Save className="mr-2 h-4 w-4" />
@@ -756,10 +909,12 @@ export function AdapterConfigPage() {
               <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               刷新
             </Button>
-            <Button onClick={handleClearPath} size="sm" variant="destructive" className="w-full sm:w-auto">
-              <Trash2 className="mr-2 h-4 w-4" />
-              清空路径
-            </Button>
+            {mode === 'path' && (
+              <Button onClick={handleClearPath} size="sm" variant="destructive" className="w-full sm:w-auto">
+                <Trash2 className="mr-2 h-4 w-4" />
+                清空路径
+              </Button>
+            )}
           </div>
         )}
 
@@ -771,7 +926,9 @@ export function AdapterConfigPage() {
               <div>
                 <h3 className="text-base md:text-lg font-semibold">尚未加载配置</h3>
                 <p className="text-xs md:text-sm text-muted-foreground mt-2 px-4">
-                  {mode === 'upload'
+                  {mode === 'preset'
+                    ? '请选择预设的部署方式'
+                    : mode === 'upload'
                     ? '请上传现有配置文件，或使用默认配置开始编辑'
                     : '请指定配置文件路径并点击加载按钮'}
                 </p>

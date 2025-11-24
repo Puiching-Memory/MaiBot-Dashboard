@@ -1,10 +1,10 @@
 /**
  * 多选下拉框组件
- * 支持搜索、单击选择、标签展示
+ * 支持搜索、单击选择、标签展示、拖动排序
  */
 
 import * as React from 'react'
-import { X, Check, ChevronsUpDown } from 'lucide-react'
+import { X, Check, ChevronsUpDown, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,6 +21,23 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 export interface MultiSelectOption {
   label: string
@@ -36,6 +53,66 @@ interface MultiSelectProps {
   className?: string
 }
 
+// 可排序的标签组件
+function SortableBadge({
+  value,
+  label,
+  onRemove,
+}: {
+  value: string
+  label: string
+  onRemove: (value: string) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: value })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'inline-flex items-center gap-1',
+        isDragging && 'shadow-lg'
+      )}
+    >
+      <Badge
+        variant="secondary"
+        className="cursor-move hover:bg-secondary/80 flex items-center gap-1"
+      >
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing flex items-center"
+        >
+          <GripVertical className="h-3 w-3 text-muted-foreground" />
+        </div>
+        <span>{label}</span>
+        <X
+          className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
+          strokeWidth={2}
+          fill="none"
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation()
+            onRemove(value)
+          }}
+        />
+      </Badge>
+    </div>
+  )
+}
+
 export function MultiSelect({
   options,
   selected,
@@ -45,6 +122,17 @@ export function MultiSelect({
   className,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 拖动至少8px才触发，避免与点击冲突
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   const handleSelect = (value: string) => {
     if (selected.includes(value)) {
@@ -60,6 +148,17 @@ export function MultiSelect({
     onChange(selected.filter((item) => item !== value))
   }
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      const oldIndex = selected.indexOf(active.id as string)
+      const newIndex = selected.indexOf(over.id as string)
+
+      onChange(arrayMove(selected, oldIndex, newIndex))
+    }
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -69,29 +168,34 @@ export function MultiSelect({
           aria-expanded={open}
           className={cn('w-full justify-between min-h-10 h-auto', className)}
         >
-          <div className="flex gap-1 flex-wrap flex-1">
-            {selected.length === 0 ? (
-              <span className="text-muted-foreground">{placeholder}</span>
-            ) : (
-              selected.map((value) => {
-                const option = options.find((opt) => opt.value === value)
-                return (
-                  <Badge
-                    key={value}
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-secondary/80"
-                    onClick={(e: React.MouseEvent) => {
-                      e.stopPropagation()
-                      handleRemove(value)
-                    }}
-                  >
-                    {option?.label || value}
-                    <X className="ml-1 h-3 w-3" strokeWidth={2} fill="none" />
-                  </Badge>
-                )
-              })
-            )}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={selected}
+              strategy={horizontalListSortingStrategy}
+            >
+              <div className="flex gap-1 flex-wrap flex-1">
+                {selected.length === 0 ? (
+                  <span className="text-muted-foreground">{placeholder}</span>
+                ) : (
+                  selected.map((value) => {
+                    const option = options.find((opt) => opt.value === value)
+                    return (
+                      <SortableBadge
+                        key={value}
+                        value={value}
+                        label={option?.label || value}
+                        onRemove={handleRemove}
+                      />
+                    )
+                  })
+                )}
+              </div>
+            </SortableContext>
+          </DndContext>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" strokeWidth={2} fill="none" />
         </Button>
       </PopoverTrigger>
