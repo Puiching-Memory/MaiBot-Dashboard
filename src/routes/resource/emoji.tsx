@@ -966,7 +966,6 @@ function EmojiEditDialog({
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
 }) {
-  const [description, setDescription] = useState('')
   const [emotionInput, setEmotionInput] = useState('')
   const [isRegistered, setIsRegistered] = useState(false)
   const [isBanned, setIsBanned] = useState(false)
@@ -976,7 +975,6 @@ function EmojiEditDialog({
 
   useEffect(() => {
     if (emoji) {
-      setDescription(emoji.description || '')
       setEmotionInput(emoji.emotion || '')
       setIsRegistered(emoji.is_registered)
       setIsBanned(emoji.is_banned)
@@ -996,7 +994,6 @@ function EmojiEditDialog({
         .join(',')
 
       await updateEmoji(emoji.id, {
-        description: description || undefined,
         emotion: emotionString || undefined,
         is_registered: isRegistered,
         is_banned: isBanned,
@@ -1027,20 +1024,9 @@ function EmojiEditDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>编辑表情包</DialogTitle>
-          <DialogDescription>修改表情包的描述和标签信息</DialogDescription>
+          <DialogDescription>修改表情包的情绪和状态信息</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div>
-            <Label>描述</Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="输入表情包描述..."
-              rows={3}
-              className="mt-1"
-            />
-          </div>
-
           <div>
             <Label>情绪</Label>
             <Textarea
