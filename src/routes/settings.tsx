@@ -898,6 +898,12 @@ function OtherTab() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [isResetting, setIsResetting] = useState(false)
+  const [shouldThrowError, setShouldThrowError] = useState(false)
+
+  // 手动触发 React 错误
+  if (shouldThrowError) {
+    throw new Error('这是一个手动触发的测试错误，用于验证错误边界组件是否正常工作。')
+  }
 
   const handleResetSetup = async () => {
     setIsResetting(true)
@@ -973,6 +979,47 @@ function OtherTab() {
                 <AlertDialogCancel>取消</AlertDialogCancel>
                 <AlertDialogAction onClick={handleResetSetup}>
                   确认重置
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+
+      {/* 开发者工具 */}
+      <div className="rounded-lg border border-dashed border-yellow-500/50 bg-yellow-500/5 p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-yellow-500" />
+          开发者工具
+        </h3>
+        <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              以下功能仅供开发调试使用，可能会导致页面崩溃或异常。
+            </p>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                触发测试错误
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>确认触发错误</AlertDialogTitle>
+                <AlertDialogDescription>
+                  这将手动触发一个 React 错误，用于测试错误边界组件的显示效果。
+                  页面将显示错误界面，您可以通过刷新页面或点击返回首页来恢复。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>取消</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={() => setShouldThrowError(true)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  确认触发
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

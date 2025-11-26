@@ -19,6 +19,7 @@ import { PluginConfigPage } from './routes/plugin-config'
 import { PluginMirrorsPage } from './routes/plugin-mirrors'
 import { Layout } from './components/layout'
 import { checkAuth } from './hooks/use-auth'
+import { RouteErrorBoundary } from './components/error-boundary'
 
 // Root 路由
 const rootRoute = createRootRoute({
@@ -59,6 +60,7 @@ const protectedRoute = createRoute({
       <Outlet />
     </Layout>
   ),
+  errorComponent: ({ error }) => <RouteErrorBoundary error={error} />,
 })
 
 // 首页路由
@@ -193,6 +195,7 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({ 
   routeTree,
   defaultNotFoundComponent: NotFoundPage,
+  defaultErrorComponent: ({ error }) => <RouteErrorBoundary error={error} />,
 })
 
 // 类型声明
