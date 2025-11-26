@@ -68,7 +68,7 @@ interface PersonalityConfig {
 
 interface ChatConfig {
   talk_value: number
-  mentioned_bot_reply: number
+  mentioned_bot_reply: boolean
   max_context_size: number
   planner_smooth: number
   enable_talk_value_rules: boolean
@@ -176,6 +176,9 @@ interface DebugConfig {
   show_replyer_prompt: boolean
   show_replyer_reasoning: boolean
   show_jargon_prompt: boolean
+  show_memory_prompt: boolean
+  show_planner_prompt: boolean
+  show_lpmm_paragraph: boolean
 }
 
 interface MaimMessageConfig {
@@ -1475,22 +1478,17 @@ function ChatSection({
             <p className="text-xs text-muted-foreground">越小越沉默，范围 0-1</p>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="mentioned_bot_reply">提及回复增幅</Label>
-            <Input
+          <div className="flex items-center space-x-2">
+            <Switch
               id="mentioned_bot_reply"
-              type="number"
-              step="0.1"
-              min="0"
-              max="1"
-              value={config.mentioned_bot_reply}
-              onChange={(e) =>
-                onChange({ ...config, mentioned_bot_reply: parseFloat(e.target.value) })
+              checked={config.mentioned_bot_reply}
+              onCheckedChange={(checked) =>
+                onChange({ ...config, mentioned_bot_reply: checked })
               }
             />
-            <p className="text-xs text-muted-foreground">
-              提及时回复概率增幅，1 为 100% 回复
-            </p>
+            <Label htmlFor="mentioned_bot_reply" className="cursor-pointer">
+              启用提及必回复
+            </Label>
           </div>
 
           <div className="grid gap-2">
@@ -4046,6 +4044,39 @@ function DebugSection({
           <Switch
             checked={config.show_jargon_prompt}
             onCheckedChange={(checked) => onChange({ ...config, show_jargon_prompt: checked })}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>显示记忆检索 Prompt</Label>
+            <p className="text-sm text-muted-foreground">是否显示记忆检索相关的提示词</p>
+          </div>
+          <Switch
+            checked={config.show_memory_prompt}
+            onCheckedChange={(checked) => onChange({ ...config, show_memory_prompt: checked })}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>显示 Planner Prompt</Label>
+            <p className="text-sm text-muted-foreground">是否显示 Planner 的提示词和原始返回结果</p>
+          </div>
+          <Switch
+            checked={config.show_planner_prompt}
+            onCheckedChange={(checked) => onChange({ ...config, show_planner_prompt: checked })}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>显示 LPMM 相关文段</Label>
+            <p className="text-sm text-muted-foreground">是否显示 LPMM 知识库找到的相关文段日志</p>
+          </div>
+          <Switch
+            checked={config.show_lpmm_paragraph}
+            onCheckedChange={(checked) => onChange({ ...config, show_lpmm_paragraph: checked })}
           />
         </div>
       </div>

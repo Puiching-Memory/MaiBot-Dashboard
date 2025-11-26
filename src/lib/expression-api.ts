@@ -11,9 +11,26 @@ import type {
   ExpressionUpdateResponse,
   ExpressionDeleteResponse,
   ExpressionStatsResponse,
+  ChatListResponse,
 } from '@/types/expression'
 
 const API_BASE = '/api/webui/expression'
+
+/**
+ * 获取聊天列表
+ */
+export async function getChatList(): Promise<ChatListResponse> {
+  const response = await fetchWithAuth(`${API_BASE}/chats`, {
+    headers: getAuthHeaders(),
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '获取聊天列表失败')
+  }
+  
+  return response.json()
+}
 
 /**
  * 获取表达方式列表

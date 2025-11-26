@@ -10,14 +10,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
 import { Card } from '@/components/ui/card'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Search, RefreshCw, Download, Filter, Trash2, Pause, Play, Calendar as CalendarIcon, X } from 'lucide-react'
+import { Search, RefreshCw, Download, Filter, Trash2, Pause, Play, Calendar as CalendarIcon, X, Type } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logWebSocket, type LogEntry } from '@/lib/log-websocket'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
+
+// 字号配置
+type FontSize = 'xs' | 'sm' | 'base'
+const fontSizeConfig: Record<FontSize, { label: string; rowHeight: number; class: string }> = {
+  xs: { label: '小', rowHeight: 28, class: 'text-[10px] sm:text-xs' },
+  sm: { label: '中', rowHeight: 36, class: 'text-xs sm:text-sm' },
+  base: { label: '大', rowHeight: 44, class: 'text-sm sm:text-base' },
+}
 
 export function LogViewerPage() {
   const [logs, setLogs] = useState<LogEntry[]>([])
@@ -28,6 +37,8 @@ export function LogViewerPage() {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined)
   const [autoScroll, setAutoScroll] = useState(true)
   const [connected, setConnected] = useState(false)
+  const [fontSize, setFontSize] = useState<FontSize>('xs') // 默认使用小字号以显示更多信息
+  const [lineSpacing, setLineSpacing] = useState(4) // 行间距，默认4px（紧凑）
   const parentRef = useRef<HTMLDivElement>(null)
 
   // 订阅全局 WebSocket 连接
@@ -168,12 +179,14 @@ export function LogViewerPage() {
     })
   }, [logs, searchQuery, levelFilter, moduleFilter, dateFrom, dateTo])
 
-  // 虚拟滚动配置
+  // 虚拟滚动配置 - 根据字号和行间距动态计算行高
+  const estimatedRowHeight = fontSizeConfig[fontSize].rowHeight + lineSpacing
+  
   const rowVirtualizer = useVirtualizer({
     count: filteredLogs.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 80, // 预估每条日志高度(移动端垂直布局更高)
-    overscan: 10, // 上下各额外渲染10条
+    estimateSize: () => estimatedRowHeight,
+    overscan: 15, // 增加预渲染数量以提高流畅度
   })
 
   // 自动滚动到底部
@@ -187,8 +200,8 @@ export function LogViewerPage() {
   }, [filteredLogs.length, autoScroll, rowVirtualizer])
 
   return (
-    <ScrollArea className="h-full">
-      <div className="space-y-4 p-3 sm:p-4 lg:p-6">
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex-shrink-0 space-y-4 p-3 sm:p-4 lg:p-6">
         {/* 标题 */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -387,17 +400,57 @@ export function LogViewerPage() {
                 <span className="ml-1">条日志</span>
               </div>
             </div>
+
+            {/* 第四行：显示设置 */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6 pt-2 border-t border-border/50">
+              {/* 字号调整 */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Type className="h-4 w-4" />
+                  <span>字号</span>
+                </div>
+                <div className="flex gap-1">
+                  {(Object.keys(fontSizeConfig) as FontSize[]).map((size) => (
+                    <Button
+                      key={size}
+                      variant={fontSize === size ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setFontSize(size)}
+                      className="h-7 px-3 text-xs"
+                    >
+                      {fontSizeConfig[size].label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 行间距调整 */}
+              <div className="flex items-center gap-3 flex-1 max-w-xs">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">行距</span>
+                <Slider
+                  value={[lineSpacing]}
+                  onValueChange={([value]) => setLineSpacing(value)}
+                  min={0}
+                  max={12}
+                  step={2}
+                  className="flex-1"
+                />
+                <span className="text-xs text-muted-foreground w-8">{lineSpacing}px</span>
+              </div>
+            </div>
           </div>
         </Card>
+      </div>
 
-        {/* 日志终端 - 使用虚拟滚动 */}
-        <Card className="bg-black dark:bg-gray-950 border-gray-800 dark:border-gray-900">
-          <ScrollArea 
-            viewportRef={parentRef}
-            className="h-[calc(100vh-280px)] sm:h-[calc(100vh-320px)] lg:h-[calc(100vh-400px)]"
-          >
+        {/* 日志终端 - 使用虚拟滚动，填充剩余空间 */}
+        <div className="flex-1 min-h-0 px-3 sm:px-4 lg:px-6 pb-3 sm:pb-4 lg:pb-6">
+          <Card className="bg-black dark:bg-gray-950 border-gray-800 dark:border-gray-900 h-full">
+            <ScrollArea 
+              viewportRef={parentRef}
+              className="h-full"
+            >
               <div
-                className="p-2 sm:p-3 lg:p-4 font-mono text-xs sm:text-sm relative"
+                className={cn("p-2 sm:p-3 font-mono relative", fontSizeConfig[fontSize].class)}
                 style={{
                   height: `${rowVirtualizer.getTotalSize()}px`,
                 }}
@@ -415,23 +468,25 @@ export function LogViewerPage() {
                       data-index={virtualRow.index}
                       ref={rowVirtualizer.measureElement}
                       className={cn(
-                        'absolute top-0 left-0 w-full py-2 px-2 sm:px-3 rounded hover:bg-white/5 transition-colors group',
+                        'absolute top-0 left-0 w-full px-2 sm:px-3 rounded hover:bg-white/5 transition-colors group',
                         getLevelBgColor(log.level)
                       )}
                       style={{
                         transform: `translateY(${virtualRow.start}px)`,
+                        paddingTop: `${lineSpacing / 2}px`,
+                        paddingBottom: `${lineSpacing / 2}px`,
                       }}
                     >
                       {/* 移动端：垂直布局 */}
-                      <div className="flex flex-col gap-1 sm:hidden">
+                      <div className="flex flex-col gap-0.5 sm:hidden">
                         {/* 第一行：时间戳和级别 */}
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-500 dark:text-gray-600 text-xs">
+                          <span className="text-gray-500 dark:text-gray-600">
                             {log.timestamp}
                           </span>
                           <span
                             className={cn(
-                              'text-xs font-semibold',
+                              'font-semibold',
                               getLevelColor(log.level)
                             )}
                           >
@@ -439,26 +494,26 @@ export function LogViewerPage() {
                           </span>
                         </div>
                         {/* 第二行：模块名 */}
-                        <div className="text-cyan-400 dark:text-cyan-500 text-xs truncate">
+                        <div className="text-cyan-400 dark:text-cyan-500 truncate">
                           {log.module}
                         </div>
                         {/* 第三行：消息内容 */}
-                        <div className="text-gray-300 dark:text-gray-400 text-xs whitespace-pre-wrap break-words">
+                        <div className="text-gray-300 dark:text-gray-400 whitespace-pre-wrap break-words">
                           {log.message}
                         </div>
                       </div>
 
                       {/* 平板/桌面端：水平布局 */}
-                      <div className="hidden sm:flex gap-3 items-start">
+                      <div className="hidden sm:flex gap-2 items-start">
                         {/* 时间戳 */}
-                        <span className="text-gray-500 dark:text-gray-600 flex-shrink-0 w-[140px] lg:w-[180px] text-xs lg:text-sm">
+                        <span className="text-gray-500 dark:text-gray-600 flex-shrink-0 w-[130px] lg:w-[160px]">
                           {log.timestamp}
                         </span>
 
                         {/* 日志级别 */}
                         <span
                           className={cn(
-                            'flex-shrink-0 w-[70px] lg:w-[80px] font-semibold text-xs lg:text-sm',
+                            'flex-shrink-0 w-[65px] lg:w-[75px] font-semibold',
                             getLevelColor(log.level)
                           )}
                         >
@@ -466,12 +521,12 @@ export function LogViewerPage() {
                         </span>
 
                         {/* 模块名 */}
-                        <span className="text-cyan-400 dark:text-cyan-500 flex-shrink-0 w-[120px] lg:w-[150px] truncate text-xs lg:text-sm">
+                        <span className="text-cyan-400 dark:text-cyan-500 flex-shrink-0 w-[100px] lg:w-[130px] truncate">
                           {log.module}
                         </span>
 
                         {/* 消息内容 */}
-                        <span className="text-gray-300 dark:text-gray-400 flex-1 whitespace-pre-wrap break-words text-xs lg:text-sm">
+                        <span className="text-gray-300 dark:text-gray-400 flex-1 whitespace-pre-wrap break-words">
                           {log.message}
                         </span>
                       </div>
@@ -483,7 +538,7 @@ export function LogViewerPage() {
           </ScrollArea>
         </Card>
       </div>
-    </ScrollArea>
+    </div>
   )
 }
 

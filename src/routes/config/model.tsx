@@ -528,8 +528,8 @@ export function ModelConfigPage() {
         {/* 页面标题 */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">模型配置</h1>
-            <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">管理模型和任务配置</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">模型管理与分配</h1>
+            <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">添加模型并为模型分配功能</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <Button 
@@ -593,8 +593,8 @@ export function ModelConfigPage() {
         {/* 标签页 */}
         <Tabs defaultValue="models" className="w-full">
           <TabsList className="grid w-full max-w-full sm:max-w-md grid-cols-2">
-            <TabsTrigger value="models">模型配置</TabsTrigger>
-            <TabsTrigger value="tasks">模型任务配置</TabsTrigger>
+            <TabsTrigger value="models">添加模型</TabsTrigger>
+            <TabsTrigger value="tasks">为模型分配功能</TabsTrigger>
           </TabsList>
           {/* 模型配置标签页 */}
           <TabsContent value="models" className="space-y-4 mt-0">

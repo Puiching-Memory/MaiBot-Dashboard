@@ -39,10 +39,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import type { Expression, ExpressionCreateRequest, ExpressionUpdateRequest } from '@/types/expression'
-import { getExpressionList, getExpressionDetail, createExpression, updateExpression, deleteExpression, batchDeleteExpressions, getExpressionStats } from '@/lib/expression-api'
+import type { Expression, ExpressionCreateRequest, ExpressionUpdateRequest, ChatInfo } from '@/types/expression'
+import { getExpressionList, getExpressionDetail, createExpression, updateExpression, deleteExpression, batchDeleteExpressions, getExpressionStats, getChatList } from '@/lib/expression-api'
 
 export function ExpressionManagementPage() {
   const [expressions, setExpressions] = useState<Expression[]>([])
@@ -60,6 +59,8 @@ export function ExpressionManagementPage() {
   const [isBatchDeleteDialogOpen, setIsBatchDeleteDialogOpen] = useState(false)
   const [jumpToPage, setJumpToPage] = useState('')
   const [stats, setStats] = useState({ total: 0, recent_7days: 0, chat_count: 0, top_chats: {} as Record<string, number> })
+  const [chatList, setChatList] = useState<ChatInfo[]>([])
+  const [chatNameMap, setChatNameMap] = useState<Map<string, string>>(new Map())
   const { toast } = useToast()
 
   // 加载表达方式列表
@@ -96,10 +97,34 @@ export function ExpressionManagementPage() {
     }
   }
 
+  // 加载聊天列表
+  const loadChatList = async () => {
+    try {
+      const response = await getChatList()
+      if (response?.data) {
+        setChatList(response.data)
+        // 构建聊天ID到名称的映射
+        const nameMap = new Map<string, string>()
+        response.data.forEach((chat) => {
+          nameMap.set(chat.chat_id, chat.chat_name)
+        })
+        setChatNameMap(nameMap)
+      }
+    } catch (error) {
+      console.error('加载聊天列表失败:', error)
+    }
+  }
+
+  // 获取聊天名称（支持Unicode字符完整显示）
+  const getChatName = (chatId: string): string => {
+    return chatNameMap.get(chatId) || chatId
+  }
+
   // 初始加载
   useEffect(() => {
     loadExpressions()
     loadStats()
+    loadChatList()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, search])
 
@@ -328,21 +353,20 @@ export function ExpressionManagementPage() {
                 </TableHead>
                 <TableHead>情境</TableHead>
                 <TableHead>风格</TableHead>
-                <TableHead>聊天ID</TableHead>
-                <TableHead>最后活跃</TableHead>
+                <TableHead>聊天</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     加载中...
                   </TableCell>
                 </TableRow>
               ) : expressions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     暂无数据
                   </TableCell>
                 </TableRow>
@@ -359,20 +383,17 @@ export function ExpressionManagementPage() {
                       {expression.situation}
                     </TableCell>
                     <TableCell className="max-w-xs truncate">{expression.style}</TableCell>
-                    <TableCell className="font-mono text-sm">{expression.chat_id}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatTime(expression.last_active_time)}
+                    <TableCell 
+                      className="max-w-[200px] truncate" 
+                      title={getChatName(expression.chat_id)}
+                      style={{ wordBreak: 'keep-all' }}
+                    >
+                      <span className="whitespace-nowrap overflow-hidden text-ellipsis block">
+                        {getChatName(expression.chat_id)}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => handleViewDetail(expression)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          详情
-                        </Button>
                         <Button
                           variant="default"
                           size="sm"
@@ -380,6 +401,15 @@ export function ExpressionManagementPage() {
                         >
                           <Edit className="h-4 w-4 mr-1" />
                           编辑
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleViewDetail(expression)}
+                          title="查看详情"
+                        >
+                          <Eye className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
@@ -434,29 +464,20 @@ export function ExpressionManagementPage() {
                       </div>
                     </div>
 
-                    {/* 聊天ID和时间 */}
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <div className="text-xs text-muted-foreground mb-1">聊天ID</div>
-                        <p className="font-mono text-xs truncate">{expression.chat_id}</p>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground mb-1">最后活跃</div>
-                        <p className="text-xs">{formatTime(expression.last_active_time)}</p>
-                      </div>
+                    {/* 聊天名称 */}
+                    <div className="text-sm">
+                      <div className="text-xs text-muted-foreground mb-1">聊天</div>
+                      <p 
+                        className="text-sm truncate" 
+                        title={getChatName(expression.chat_id)}
+                        style={{ wordBreak: 'keep-all' }}
+                      >
+                        {getChatName(expression.chat_id)}
+                      </p>
                     </div>
 
                     {/* 操作按钮 */}
                     <div className="flex flex-wrap gap-1 pt-2 border-t overflow-hidden">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewDetail(expression)}
-                        className="text-xs px-2 py-1 h-auto flex-shrink-0"
-                      >
-                        <Eye className="h-3 w-3 mr-1" />
-                        查看
-                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -465,6 +486,14 @@ export function ExpressionManagementPage() {
                       >
                         <Edit className="h-3 w-3 mr-1" />
                         编辑
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetail(expression)}
+                        className="text-xs px-2 py-1 h-auto flex-shrink-0"
+                      >
+                        <Eye className="h-3 w-3" />
                       </Button>
                       <Button
                         variant="outline"
@@ -567,12 +596,14 @@ export function ExpressionManagementPage() {
         expression={selectedExpression}
         open={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
+        chatNameMap={chatNameMap}
       />
 
       {/* 创建对话框 */}
       <ExpressionCreateDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
+        chatList={chatList}
         onSuccess={() => {
           loadExpressions()
           loadStats()
@@ -585,6 +616,7 @@ export function ExpressionManagementPage() {
         expression={selectedExpression}
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
+        chatList={chatList}
         onSuccess={() => {
           loadExpressions()
           loadStats()
@@ -633,16 +665,22 @@ function ExpressionDetailDialog({
   expression,
   open,
   onOpenChange,
+  chatNameMap,
 }: {
   expression: Expression | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  chatNameMap: Map<string, string>
 }) {
   if (!expression) return null
 
   const formatTime = (timestamp: number | null) => {
     if (!timestamp) return '-'
     return new Date(timestamp * 1000).toLocaleString('zh-CN')
+  }
+
+  const getChatName = (chatId: string): string => {
+    return chatNameMap.get(chatId) || chatId
   }
 
   return (
@@ -659,26 +697,14 @@ function ExpressionDetailDialog({
           <div className="grid grid-cols-2 gap-4">
             <InfoItem label="情境" value={expression.situation} />
             <InfoItem label="风格" value={expression.style} />
-            <InfoItem icon={Hash} label="聊天ID" value={expression.chat_id} mono />
+            <InfoItem 
+              label="聊天" 
+              value={getChatName(expression.chat_id)} 
+            />
             <InfoItem icon={Hash} label="记录ID" value={expression.id.toString()} mono />
           </div>
 
-          {expression.context && (
-            <div className="rounded-lg border bg-muted/50 p-3">
-              <Label className="text-xs text-muted-foreground">上下文</Label>
-              <p className="mt-1 text-sm whitespace-pre-wrap">{expression.context}</p>
-            </div>
-          )}
-
-          {expression.up_content && (
-            <div className="rounded-lg border bg-muted/50 p-3">
-              <Label className="text-xs text-muted-foreground">上文内容</Label>
-              <p className="mt-1 text-sm whitespace-pre-wrap">{expression.up_content}</p>
-            </div>
-          )}
-
           <div className="grid grid-cols-2 gap-4">
-            <InfoItem icon={Clock} label="最后活跃" value={formatTime(expression.last_active_time)} />
             <InfoItem icon={Clock} label="创建时间" value={formatTime(expression.create_date)} />
           </div>
         </div>
@@ -720,17 +746,17 @@ function InfoItem({
 function ExpressionCreateDialog({
   open,
   onOpenChange,
+  chatList,
   onSuccess,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  chatList: ChatInfo[]
   onSuccess: () => void
 }) {
   const [formData, setFormData] = useState<ExpressionCreateRequest>({
     situation: '',
     style: '',
-    context: '',
-    up_content: '',
     chat_id: '',
   })
   const [saving, setSaving] = useState(false)
@@ -740,7 +766,7 @@ function ExpressionCreateDialog({
     if (!formData.situation || !formData.style || !formData.chat_id) {
       toast({
         title: '验证失败',
-        description: '请填写必填字段：情境、风格和聊天ID',
+        description: '请填写必填字段：情境、风格和聊天',
         variant: 'destructive',
       })
       return
@@ -757,8 +783,6 @@ function ExpressionCreateDialog({
       setFormData({
         situation: '',
         style: '',
-        context: '',
-        up_content: '',
         chat_id: '',
       })
       onSuccess()
@@ -811,36 +835,26 @@ function ExpressionCreateDialog({
 
           <div className="space-y-2">
             <Label htmlFor="chat_id">
-              聊天ID <span className="text-destructive">*</span>
+              聊天 <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="chat_id"
+            <Select
               value={formData.chat_id}
-              onChange={(e) => setFormData({ ...formData, chat_id: e.target.value })}
-              placeholder="关联的聊天ID"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="context">上下文</Label>
-            <Textarea
-              id="context"
-              value={formData.context}
-              onChange={(e) => setFormData({ ...formData, context: e.target.value })}
-              placeholder="上下文信息（可选）"
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="up_content">上文内容</Label>
-            <Textarea
-              id="up_content"
-              value={formData.up_content}
-              onChange={(e) => setFormData({ ...formData, up_content: e.target.value })}
-              placeholder="上文内容（可选）"
-              rows={3}
-            />
+              onValueChange={(value) => setFormData({ ...formData, chat_id: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择关联的聊天" />
+              </SelectTrigger>
+              <SelectContent>
+                {chatList.map((chat) => (
+                  <SelectItem key={chat.chat_id} value={chat.chat_id}>
+                    <span className="truncate" style={{ wordBreak: 'keep-all' }}>
+                      {chat.chat_name}
+                      {chat.is_group && <span className="text-muted-foreground ml-1">(群聊)</span>}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -862,11 +876,13 @@ function ExpressionEditDialog({
   expression,
   open,
   onOpenChange,
+  chatList,
   onSuccess,
 }: {
   expression: Expression | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  chatList: ChatInfo[]
   onSuccess: () => void
 }) {
   const [formData, setFormData] = useState<ExpressionUpdateRequest>({})
@@ -878,8 +894,6 @@ function ExpressionEditDialog({
       setFormData({
         situation: expression.situation,
         style: expression.style,
-        context: expression.context || '',
-        up_content: expression.up_content || '',
         chat_id: expression.chat_id,
       })
     }
@@ -942,35 +956,25 @@ function ExpressionEditDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit_chat_id">聊天ID</Label>
-            <Input
-              id="edit_chat_id"
+            <Label htmlFor="edit_chat_id">聊天</Label>
+            <Select
               value={formData.chat_id || ''}
-              onChange={(e) => setFormData({ ...formData, chat_id: e.target.value })}
-              placeholder="关联的聊天ID"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit_context">上下文</Label>
-            <Textarea
-              id="edit_context"
-              value={formData.context || ''}
-              onChange={(e) => setFormData({ ...formData, context: e.target.value })}
-              placeholder="上下文信息"
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit_up_content">上文内容</Label>
-            <Textarea
-              id="edit_up_content"
-              value={formData.up_content || ''}
-              onChange={(e) => setFormData({ ...formData, up_content: e.target.value })}
-              placeholder="上文内容"
-              rows={3}
-            />
+              onValueChange={(value) => setFormData({ ...formData, chat_id: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="选择关联的聊天" />
+              </SelectTrigger>
+              <SelectContent>
+                {chatList.map((chat) => (
+                  <SelectItem key={chat.chat_id} value={chat.chat_id}>
+                    <span className="truncate" style={{ wordBreak: 'keep-all' }}>
+                      {chat.chat_name}
+                      {chat.is_group && <span className="text-muted-foreground ml-1">(群聊)</span>}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

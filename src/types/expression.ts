@@ -17,6 +17,24 @@ export interface Expression {
 }
 
 /**
+ * 聊天信息
+ */
+export interface ChatInfo {
+  chat_id: string
+  chat_name: string
+  platform: string | null
+  is_group: boolean
+}
+
+/**
+ * 聊天列表响应
+ */
+export interface ChatListResponse {
+  success: boolean
+  data: ChatInfo[]
+}
+
+/**
  * 表达方式列表响应
  */
 export interface ExpressionListResponse {

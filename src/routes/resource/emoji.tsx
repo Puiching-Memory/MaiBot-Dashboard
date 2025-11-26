@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Search,
   Filter,
   RefreshCw,
   Trash2,
@@ -11,7 +10,6 @@ import {
   ChevronsLeft,
   ChevronsRight,
   CheckCircle2,
-  XCircle,
   Ban,
 } from 'lucide-react'
 
@@ -54,14 +52,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+
 import { Markdown } from '@/components/ui/markdown'
 import { useToast } from '@/hooks/use-toast'
 import type { Emoji, EmojiStats } from '@/types/emoji'
@@ -84,10 +75,11 @@ export function EmojiManagementPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [pageSize, setPageSize] = useState(20)
-  const [search, setSearch] = useState('')
   const [registeredFilter, setRegisteredFilter] = useState<string>('all')
   const [bannedFilter, setBannedFilter] = useState<string>('all')
   const [formatFilter, setFormatFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('usage_count')
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
   const [selectedEmoji, setSelectedEmoji] = useState<Emoji | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -95,6 +87,7 @@ export function EmojiManagementPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false)
   const [jumpToPage, setJumpToPage] = useState('')
+  const [cardSize, setCardSize] = useState<'small' | 'medium' | 'large'>('medium')
 
   const { toast } = useToast()
 
@@ -105,12 +98,11 @@ export function EmojiManagementPage() {
       const response = await getEmojiList({
         page,
         page_size: pageSize,
-        search: search || undefined,
         is_registered: registeredFilter === 'all' ? undefined : registeredFilter === 'registered',
         is_banned: bannedFilter === 'all' ? undefined : bannedFilter === 'banned',
         format: formatFilter === 'all' ? undefined : formatFilter,
-        sort_by: 'usage_count',
-        sort_order: 'desc',
+        sort_by: sortBy,
+        sort_order: sortOrder,
       })
       setEmojiList(response.data)
       setTotal(response.total)
@@ -124,7 +116,7 @@ export function EmojiManagementPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, search, registeredFilter, bannedFilter, formatFilter, toast])
+  }, [page, pageSize, registeredFilter, bannedFilter, formatFilter, sortBy, sortOrder, toast])
 
   // 加载统计数据
   const loadStats = async () => {
@@ -247,15 +239,6 @@ export function EmojiManagementPage() {
     setSelectedIds(newSelected)
   }
 
-  // 全选/取消全选
-  const toggleSelectAll = () => {
-    if (selectedIds.size === emojiList.length && emojiList.length > 0) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(emojiList.map(e => e.id)))
-    }
-  }
-
   // 批量删除
   const handleBatchDelete = async () => {
     try {
@@ -345,30 +328,41 @@ export function EmojiManagementPage() {
         </div>
       )}
 
-      {/* 搜索和筛选 */}
+      {/* 筛选和排序 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Filter className="h-5 w-5" />
-            搜索和筛选
+            筛选和排序
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
-              <Label>搜索</Label>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="描述或哈希值..."
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value)
-                    setPage(1)
-                  }}
-                  className="pl-8"
-                />
-              </div>
+              <Label>排序方式</Label>
+              <Select
+                value={`${sortBy}-${sortOrder}`}
+                onValueChange={(value) => {
+                  const [newSortBy, newSortOrder] = value.split('-')
+                  setSortBy(newSortBy)
+                  setSortOrder(newSortOrder as 'desc' | 'asc')
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="usage_count-desc">使用次数 (多→少)</SelectItem>
+                  <SelectItem value="usage_count-asc">使用次数 (少→多)</SelectItem>
+                  <SelectItem value="register_time-desc">注册时间 (新→旧)</SelectItem>
+                  <SelectItem value="register_time-asc">注册时间 (旧→新)</SelectItem>
+                  <SelectItem value="record_time-desc">记录时间 (新→旧)</SelectItem>
+                  <SelectItem value="record_time-asc">记录时间 (旧→新)</SelectItem>
+                  <SelectItem value="last_used_time-desc">最后使用 (新→旧)</SelectItem>
+                  <SelectItem value="last_used_time-asc">最后使用 (旧→新)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -436,10 +430,27 @@ export function EmojiManagementPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 border-t">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-4">
               {selectedIds.size > 0 && (
-                <span>已选择 {selectedIds.size} 个表情包</span>
+                <span className="text-sm text-muted-foreground">已选择 {selectedIds.size} 个表情包</span>
               )}
+              {/* 卡片尺寸切换 */}
+              <div className="flex items-center gap-2">
+                <Label className="text-sm whitespace-nowrap">卡片大小</Label>
+                <Select
+                  value={cardSize}
+                  onValueChange={(value: 'small' | 'medium' | 'large') => setCardSize(value)}
+                >
+                  <SelectTrigger className="w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">小</SelectItem>
+                    <SelectItem value="medium">中</SelectItem>
+                    <SelectItem value="large">大</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Label htmlFor="emoji-page-size" className="text-sm whitespace-nowrap">每页显示</Label>
@@ -455,9 +466,9 @@ export function EmojiManagementPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
                   <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="40">40</SelectItem>
+                  <SelectItem value="60">60</SelectItem>
                   <SelectItem value="100">100</SelectItem>
                 </SelectContent>
               </Select>
@@ -497,7 +508,7 @@ export function EmojiManagementPage() {
         </CardContent>
       </Card>
 
-      {/* 表情包列表 */}
+      {/* 表情包卡片列表 */}
       <Card>
         <CardHeader>
           <CardTitle>表情包列表</CardTitle>
@@ -506,277 +517,158 @@ export function EmojiManagementPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* 桌面端表格视图 */}
-          <div className="hidden md:block rounded-md border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={emojiList.length > 0 && selectedIds.size === emojiList.length}
-                      onCheckedChange={toggleSelectAll}
-                      aria-label="全选"
-                    />
-                  </TableHead>
-                  <TableHead className="w-16">预览</TableHead>
-                  <TableHead>描述</TableHead>
-                  <TableHead>格式</TableHead>
-                  <TableHead>情绪</TableHead>
-                  <TableHead className="text-center">状态</TableHead>
-                  <TableHead className="text-right">使用次数</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {emojiList.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      暂无数据
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  emojiList.map((emoji) => (
-                    <TableRow key={emoji.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedIds.has(emoji.id)}
-                          onCheckedChange={() => toggleSelect(emoji.id)}
-                          aria-label={`选择 ${emoji.description}`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="w-20 h-20 bg-muted rounded flex items-center justify-center overflow-hidden">
-                          <img
-                            src={getEmojiThumbnailUrl(emoji.id)}
-                            alt={emoji.description || '表情包'}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              // 图片加载失败时显示默认图标
-                              const target = e.target as HTMLImageElement
-                              target.style.display = 'none'
-                              const parent = target.parentElement
-                              if (parent) {
-                                parent.innerHTML = '<svg class="h-6 w-6 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>'
-                              }
-                            }}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1 max-w-xs">
-                          <div className="font-medium truncate" title={emoji.description || '无描述'}>
-                            {emoji.description || '无描述'}
-                          </div>
-                          <div className="text-xs text-muted-foreground font-mono">
-                            {emoji.emoji_hash.slice(0, 16)}...
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{emoji.format.toUpperCase()}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <EmotionTags emotions={emoji.emotion} />
-                      </TableCell>
-                      <TableCell className="align-middle">
-                        <div className="flex gap-2 justify-center">
-                          {emoji.is_registered && (
-                            <Badge variant="default" className="bg-green-600">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              已注册
-                            </Badge>
-                          )}
-                          {emoji.is_banned && (
-                            <Badge variant="destructive">
-                              <XCircle className="h-3 w-3 mr-1" />
-                              已封禁
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {emoji.usage_count}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1 flex-wrap">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => handleViewDetail(emoji)}
-                          >
-                            <Info className="h-4 w-4 mr-1" />
-                            详情
-                          </Button>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => handleEdit(emoji)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            编辑
-                          </Button>
-                          {!emoji.is_registered && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleRegister(emoji)}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              <CheckCircle2 className="h-4 w-4 mr-1" />
-                              注册
-                            </Button>
-                          )}
-                          {!emoji.is_banned && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleBan(emoji)}
-                              className="bg-orange-600 hover:bg-orange-700 text-white"
-                            >
-                              <Ban className="h-4 w-4 mr-1" />
-                              封禁
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            onClick={() => handleDelete(emoji)}
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            删除
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* 移动端卡片视图 */}
-          <div className="md:hidden space-y-3">
-            {emojiList.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                暂无数据
-              </div>
-            ) : (
-              emojiList.map((emoji) => (
-                <div key={emoji.id} className="rounded-lg border bg-card p-4 space-y-3 overflow-hidden">
-                  <div className="flex gap-3">
-                    {/* 缩略图 */}
-                    <div className="flex-shrink-0">
-                      <div className="w-16 h-16 bg-muted rounded flex items-center justify-center overflow-hidden">
-                        <img
-                          src={getEmojiThumbnailUrl(emoji.id)}
-                          alt={emoji.description || '表情包'}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.style.display = 'none'
-                            const parent = target.parentElement
-                            if (parent) {
-                              parent.innerHTML = '<svg class="h-6 w-6 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>'
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* 信息区域 */}
-                    <div className="flex-1 min-w-0 space-y-2">
-                      {/* 描述 */}
-                      <div className="min-w-0 w-full overflow-hidden">
-                        <h3 className="font-semibold text-sm line-clamp-1 w-full break-all" title={emoji.description || '无描述'}>
-                          {emoji.description || '无描述'}
-                        </h3>
-                        <p className="text-xs text-muted-foreground font-mono line-clamp-1 w-full break-all">
-                          {emoji.emoji_hash.slice(0, 16)}...
-                        </p>
-                      </div>
-
-                      {/* 标签和状态 */}
-                      <div className="flex flex-wrap gap-1 items-center min-w-0">
-                        <Badge variant="outline" className="text-xs flex-shrink-0">
-                          {emoji.format.toUpperCase()}
-                        </Badge>
-                        {emoji.is_registered && (
-                          <Badge variant="default" className="bg-green-600 text-xs flex-shrink-0">
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            已注册
-                          </Badge>
-                        )}
-                        {emoji.is_banned && (
-                          <Badge variant="destructive" className="text-xs flex-shrink-0">
-                            <XCircle className="h-3 w-3 mr-1" />
-                            已封禁
-                          </Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground flex-shrink-0">
-                          使用: {emoji.usage_count}
-                        </span>
-                      </div>
-
-                      {/* 情绪 */}
-                      {emoji.emotion && emoji.emotion.trim() && (
-                        <div className="min-w-0 overflow-hidden">
-                          <EmotionTags emotions={emoji.emotion} />
-                        </div>
-                      )}
+          {/* 卡片网格视图 */}
+          {emojiList.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              暂无数据
+            </div>
+          ) : (
+            <div className={`grid gap-3 ${
+              cardSize === 'small' 
+                ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10' 
+                : cardSize === 'medium'
+                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+                : 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+            }`}>
+              {emojiList.map((emoji) => (
+                <div 
+                  key={emoji.id} 
+                  className={`group relative rounded-lg border bg-card overflow-hidden hover:ring-2 hover:ring-primary transition-all cursor-pointer ${
+                    selectedIds.has(emoji.id) ? 'ring-2 ring-primary bg-primary/5' : ''
+                  }`}
+                  onClick={() => toggleSelect(emoji.id)}
+                >
+                  {/* 选中指示器 */}
+                  <div className={`absolute top-1 left-1 z-10 transition-opacity ${
+                    selectedIds.has(emoji.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  }`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      selectedIds.has(emoji.id) 
+                        ? 'bg-primary border-primary text-primary-foreground' 
+                        : 'bg-background/80 border-muted-foreground/50'
+                    }`}>
+                      {selectedIds.has(emoji.id) && <CheckCircle2 className="h-3 w-3" />}
                     </div>
                   </div>
 
-                  {/* 操作按钮 */}
-                  <div className="flex flex-wrap gap-1 pt-2 border-t overflow-hidden">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleViewDetail(emoji)}
-                      className="text-xs px-2 py-1 h-auto flex-shrink-0"
-                    >
-                      <Info className="h-3 w-3 mr-1" />
-                      详情
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleEdit(emoji)}
-                      className="text-xs px-2 py-1 h-auto flex-shrink-0"
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      编辑
-                    </Button>
-                    {!emoji.is_registered && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleRegister(emoji)}
-                        className="text-xs px-2 py-1 h-auto flex-shrink-0 bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        注册
-                      </Button>
+                  {/* 状态标签 */}
+                  <div className="absolute top-1 right-1 z-10 flex flex-col gap-0.5">
+                    {emoji.is_registered && (
+                      <Badge variant="default" className="bg-green-600 text-[10px] px-1 py-0">
+                        已注册
+                      </Badge>
                     )}
-                    {!emoji.is_banned && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleBan(emoji)}
-                        className="text-xs px-2 py-1 h-auto flex-shrink-0 bg-orange-600 hover:bg-orange-700 text-white"
-                      >
-                        <Ban className="h-3 w-3 mr-1" />
-                        封禁
-                      </Button>
+                    {emoji.is_banned && (
+                      <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                        已封禁
+                      </Badge>
                     )}
-                    <Button
-                      size="sm"
-                      onClick={() => handleDelete(emoji)}
-                      className="text-xs px-2 py-1 h-auto flex-shrink-0 bg-red-600 hover:bg-red-700 text-white"
-                    >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      删除
-                    </Button>
+                  </div>
+
+                  {/* 图片 */}
+                  <div className={`aspect-square bg-muted flex items-center justify-center overflow-hidden ${
+                    cardSize === 'small' ? 'p-1' : cardSize === 'medium' ? 'p-2' : 'p-3'
+                  }`}>
+                    <img
+                      src={getEmojiThumbnailUrl(emoji.id)}
+                      alt="表情包"
+                      className="w-full h-full object-contain"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        const parent = target.parentElement
+                        if (parent) {
+                          parent.innerHTML = '<svg class="h-8 w-8 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>'
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* 底部信息和操作 */}
+                  <div className={`border-t bg-card ${cardSize === 'small' ? 'p-1' : 'p-2'}`}>
+                    {/* 使用次数和格式 */}
+                    <div className="flex items-center justify-between gap-1 text-xs text-muted-foreground mb-1">
+                      <Badge variant="outline" className="text-[10px] px-1 py-0">
+                        {emoji.format.toUpperCase()}
+                      </Badge>
+                      <span className="font-mono">{emoji.usage_count}次</span>
+                    </div>
+                    
+                    {/* 操作按钮 - 悬停时显示 */}
+                    <div className={`flex gap-1 justify-center opacity-0 group-hover:opacity-100 transition-opacity ${
+                      cardSize === 'small' ? 'flex-wrap' : ''
+                    }`}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleEdit(emoji)
+                        }}
+                        title="编辑"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleViewDetail(emoji)
+                        }}
+                        title="详情"
+                      >
+                        <Info className="h-3 w-3" />
+                      </Button>
+                      {!emoji.is_registered && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-green-600 hover:text-green-700"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRegister(emoji)
+                          }}
+                          title="注册"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {!emoji.is_banned && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-orange-600 hover:text-orange-700"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleBan(emoji)
+                          }}
+                          title="封禁"
+                        >
+                          <Ban className="h-3 w-3" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-red-600 hover:text-red-700"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(emoji)
+                        }}
+                        title="删除"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* 分页 */}
           {/* 分页 - 增强版 */}
@@ -1211,25 +1103,5 @@ function EmojiEditDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
-
-// 情绪组件 - 直接显示字符串,限制字数
-function EmotionTags({ emotions }: { emotions: string | null | undefined }) {
-  // 直接显示字符串，不解析为标签
-  if (!emotions || emotions.trim() === '') {
-    return <span className="text-xs text-muted-foreground">-</span>
-  }
-
-  // 限制显示长度
-  const maxLength = 20
-  const displayText = emotions.length > maxLength 
-    ? emotions.slice(0, maxLength) + '...' 
-    : emotions
-
-  return (
-    <div className="text-sm break-words max-w-xs" title={emotions}>
-      {displayText}
-    </div>
   )
 }
