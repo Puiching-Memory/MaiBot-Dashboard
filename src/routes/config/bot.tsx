@@ -1813,13 +1813,13 @@ function ChatSection({
                           id={`rule-value-${index}`}
                           type="number"
                           step="0.01"
-                          min="0"
+                          min="0.01"
                           max="1"
                           value={rule.value}
                           onChange={(e) => {
                             const val = parseFloat(e.target.value)
                             if (!isNaN(val)) {
-                              updateTalkValueRule(index, 'value', Math.max(0, Math.min(1, val)))
+                              updateTalkValueRule(index, 'value', Math.max(0.01, Math.min(1, val)))
                             }
                           }}
                           className="w-20 h-8 text-xs"
@@ -1830,13 +1830,13 @@ function ChatSection({
                         onValueChange={(values) =>
                           updateTalkValueRule(index, 'value', values[0])
                         }
-                        min={0}
+                        min={0.01}
                         max={1}
                         step={0.01}
                         className="w-full"
                       />
                       <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>0 (完全沉默)</span>
+                        <span>0.01 (极少发言)</span>
                         <span>0.5</span>
                         <span>1.0 (正常)</span>
                       </div>
@@ -1865,6 +1865,107 @@ function ChatSection({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// 表达共享组成员输入组件（独立定义避免重新创建）
+function ExpressionGroupMemberInput({
+  member,
+  groupIndex,
+  memberIndex,
+  availableChatIds,
+  onUpdate,
+  onRemove,
+}: {
+  member: string
+  groupIndex: number
+  memberIndex: number
+  availableChatIds: string[]
+  onUpdate: (groupIndex: number, memberIndex: number, value: string) => void
+  onRemove: (groupIndex: number, memberIndex: number) => void
+}) {
+  // 判断当前成员是否在可选列表中
+  const isFromList = availableChatIds.includes(member) || member === '*'
+  const [inputMode, setInputMode] = useState(!isFromList)
+  
+  return (
+    <div className="flex gap-2">
+      {/* 输入模式切换 */}
+      <div className="flex-1 flex gap-2">
+        {inputMode ? (
+          // 手动输入模式
+          <>
+            <Input
+              value={member}
+              onChange={(e) => onUpdate(groupIndex, memberIndex, e.target.value)}
+              placeholder='输入 "*" 或 "qq:123456:group"'
+              className="flex-1"
+            />
+            {availableChatIds.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setInputMode(false)}
+                title="切换到下拉选择"
+              >
+                下拉
+              </Button>
+            )}
+          </>
+        ) : (
+          // 下拉选择模式
+          <>
+            <Select
+              value={member}
+              onValueChange={(value) => onUpdate(groupIndex, memberIndex, value)}
+            >
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="选择聊天流" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="*">* (全局共享)</SelectItem>
+                {availableChatIds.map((chatId, idx) => (
+                  <SelectItem key={idx} value={chatId}>
+                    {chatId}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setInputMode(true)}
+              title="切换到手动输入"
+            >
+              输入
+            </Button>
+          </>
+        )}
+      </div>
+      
+      {/* 删除按钮 */}
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button size="icon" variant="outline">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除组成员 "{member || '(空)'}" 吗？此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => onRemove(groupIndex, memberIndex)}>
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -1931,103 +2032,6 @@ function ExpressionSection({
           </div>
         </PopoverContent>
       </Popover>
-    )
-  }
-
-  // 表达共享组成员输入组件
-  const ExpressionGroupMemberInput = ({
-    member,
-    groupIndex,
-    memberIndex,
-    availableChatIds,
-  }: {
-    member: string
-    groupIndex: number
-    memberIndex: number
-    availableChatIds: string[]
-  }) => {
-    // 判断当前成员是否在可选列表中
-    const isFromList = availableChatIds.includes(member) || member === '*'
-    const [inputMode, setInputMode] = useState(!isFromList)
-    
-    return (
-      <div className="flex gap-2">
-        {/* 输入模式切换 */}
-        <div className="flex-1 flex gap-2">
-          {inputMode ? (
-            // 手动输入模式
-            <>
-              <Input
-                value={member}
-                onChange={(e) => updateGroupMember(groupIndex, memberIndex, e.target.value)}
-                placeholder='输入 "*" 或 "qq:123456:group"'
-                className="flex-1"
-              />
-              {availableChatIds.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setInputMode(false)}
-                  title="切换到下拉选择"
-                >
-                  下拉
-                </Button>
-              )}
-            </>
-          ) : (
-            // 下拉选择模式
-            <>
-              <Select
-                value={member}
-                onValueChange={(value) => updateGroupMember(groupIndex, memberIndex, value)}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="选择聊天流" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="*">* (全局共享)</SelectItem>
-                  {availableChatIds.map((chatId, idx) => (
-                    <SelectItem key={idx} value={chatId}>
-                      {chatId}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setInputMode(true)}
-                title="切换到手动输入"
-              >
-                输入
-              </Button>
-            </>
-          )}
-        </div>
-        
-        {/* 删除按钮 */}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button size="icon" variant="outline">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>确认删除</AlertDialogTitle>
-              <AlertDialogDescription>
-                确定要删除组成员 "{member || '(空)'}" 吗？此操作无法撤销。
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction onClick={() => removeGroupMember(groupIndex, memberIndex)}>
-                删除
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
     )
   }
 
@@ -2386,11 +2390,13 @@ function ExpressionSection({
                   <div className="space-y-2">
                     {group.map((member, memberIndex) => (
                       <ExpressionGroupMemberInput
-                        key={memberIndex}
+                        key={`${groupIndex}-${memberIndex}`}
                         member={member}
                         groupIndex={groupIndex}
                         memberIndex={memberIndex}
                         availableChatIds={availableChatIds}
+                        onUpdate={updateGroupMember}
+                        onRemove={removeGroupMember}
                       />
                     ))}
                   </div>
