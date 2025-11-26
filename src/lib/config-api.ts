@@ -186,3 +186,49 @@ export async function updateModelConfigSection(
     throw new Error(data.message || `保存配置节 ${sectionName} 失败`)
   }
 }
+
+/**
+ * 模型信息
+ */
+export interface ModelListItem {
+  id: string
+  name: string
+  owned_by?: string
+}
+
+/**
+ * 获取模型列表响应
+ */
+export interface FetchModelsResponse {
+  success: boolean
+  models: ModelListItem[]
+  provider?: string
+  count: number
+}
+
+/**
+ * 获取指定提供商的可用模型列表
+ * @param providerName 提供商名称（在 model_config.toml 中配置的名称）
+ * @param parser 响应解析器类型 ('openai' | 'gemini')
+ * @param endpoint 获取模型列表的端点（默认 '/models'）
+ */
+export async function fetchProviderModels(
+  providerName: string,
+  parser: 'openai' | 'gemini' = 'openai',
+  endpoint: string = '/models'
+): Promise<ModelListItem[]> {
+  const params = new URLSearchParams({
+    provider_name: providerName,
+    parser,
+    endpoint,
+  })
+  
+  const response = await fetchWithAuth(`/api/webui/models/list?${params}`)
+  const data: FetchModelsResponse = await response.json()
+  
+  if (!data.success) {
+    throw new Error('获取模型列表失败')
+  }
+  
+  return data.models
+}

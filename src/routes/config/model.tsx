@@ -40,17 +40,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Pencil, Trash2, Save, Search, Info, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, HelpCircle } from 'lucide-react'
-import { getModelConfig, updateModelConfig, updateModelConfigSection } from '@/lib/config-api'
+import { Plus, Pencil, Trash2, Save, Search, Info, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, HelpCircle, Check, ChevronsUpDown, RefreshCw, Loader2 } from 'lucide-react'
+import { getModelConfig, updateModelConfig, updateModelConfigSection, fetchProviderModels, type ModelListItem } from '@/lib/config-api'
 import { restartMaiBot } from '@/lib/system-api'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { RestartingOverlay } from '@/components/RestartingOverlay'
+import { findTemplateByBaseUrl, type ProviderTemplate } from './providerTemplates'
 
 interface ModelInfo {
   model_identifier: string
@@ -60,6 +74,17 @@ interface ModelInfo {
   price_out: number | null
   force_stream_mode?: boolean
   extra_params?: Record<string, unknown>
+}
+
+// 提供商完整配置接口
+interface ProviderConfig {
+  name: string
+  base_url: string
+  api_key: string
+  client_type: string
+  max_retry?: number
+  timeout?: number
+  retry_interval?: number
 }
 
 interface TaskConfig {
@@ -82,9 +107,14 @@ interface ModelTaskConfig {
   lpmm_qa: TaskConfig
 }
 
+// 模型列表缓存
+const modelListCache = new Map<string, { models: ModelListItem[], timestamp: number }>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 分钟缓存
+
 export function ModelConfigPage() {
   const [models, setModels] = useState<ModelInfo[]>([])
   const [providers, setProviders] = useState<string[]>([])
+  const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([])
   const [modelNames, setModelNames] = useState<string[]>([])
   const [taskConfig, setTaskConfig] = useState<ModelTaskConfig | null>(null)
   const [loading, setLoading] = useState(true)
@@ -104,6 +134,14 @@ export function ModelConfigPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [jumpToPage, setJumpToPage] = useState('')
+  
+  // 模型列表获取相关状态
+  const [availableModels, setAvailableModels] = useState<ModelListItem[]>([])
+  const [fetchingModels, setFetchingModels] = useState(false)
+  const [modelFetchError, setModelFetchError] = useState<string | null>(null)
+  const [modelComboboxOpen, setModelComboboxOpen] = useState(false)
+  const [matchedTemplate, setMatchedTemplate] = useState<ProviderTemplate | null>(null)
+  
   const { toast} = useToast()
 
   // 用于防抖的定时器
@@ -124,8 +162,9 @@ export function ModelConfigPage() {
       setModels(modelList)
       setModelNames(modelList.map((m) => m.name))
       
-      const providerList = (config.api_providers as { name: string }[]) || []
+      const providerList = (config.api_providers as ProviderConfig[]) || []
       setProviders(providerList.map((p) => p.name))
+      setProviderConfigs(providerList)
       
       setTaskConfig((config.model_task_config as ModelTaskConfig) || null)
       setHasUnsavedChanges(false)
@@ -136,6 +175,88 @@ export function ModelConfigPage() {
       setLoading(false)
     }
   }
+
+  // 获取指定提供商的配置
+  const getProviderConfig = useCallback((providerName: string): ProviderConfig | undefined => {
+    return providerConfigs.find(p => p.name === providerName)
+  }, [providerConfigs])
+
+  // 获取提供商的模型列表
+  const fetchModelsForProvider = useCallback(async (providerName: string, forceRefresh = false) => {
+    const config = getProviderConfig(providerName)
+    if (!config?.base_url) {
+      setAvailableModels([])
+      setMatchedTemplate(null)
+      setModelFetchError('提供商配置不完整，请先在"模型提供商配置"中配置')
+      return
+    }
+
+    // 检查 API Key 是否已配置
+    if (!config.api_key) {
+      setAvailableModels([])
+      setMatchedTemplate(null)
+      setModelFetchError('该提供商未配置 API Key，请先在"模型提供商配置"中填写')
+      return
+    }
+
+    // 查找匹配的模板
+    const template = findTemplateByBaseUrl(config.base_url)
+    setMatchedTemplate(template)
+
+    // 如果没有模板或模板不支持获取模型列表
+    if (!template?.modelFetcher) {
+      setAvailableModels([])
+      setModelFetchError(null)
+      return
+    }
+
+    // 检查缓存
+    const cacheKey = `${providerName}:${config.base_url}`
+    const cached = modelListCache.get(cacheKey)
+    if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      setAvailableModels(cached.models)
+      setModelFetchError(null)
+      return
+    }
+
+    // 获取模型列表
+    setFetchingModels(true)
+    setModelFetchError(null)
+
+    try {
+      const models = await fetchProviderModels(
+        providerName,
+        template.modelFetcher.parser,
+        template.modelFetcher.endpoint
+      )
+      setAvailableModels(models)
+      // 更新缓存
+      modelListCache.set(cacheKey, { models, timestamp: Date.now() })
+    } catch (error) {
+      console.error('获取模型列表失败:', error)
+      const errorMessage = (error as Error).message || '获取模型列表失败'
+      // 根据错误类型提供更友好的提示
+      if (errorMessage.includes('401') || errorMessage.includes('无效') || errorMessage.includes('过期')) {
+        setModelFetchError('API Key 无效或已过期，请检查"模型提供商配置"中的密钥')
+      } else if (errorMessage.includes('403') || errorMessage.includes('权限')) {
+        setModelFetchError('没有权限获取模型列表，请检查 API Key 权限')
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('超时')) {
+        setModelFetchError('请求超时，请检查网络连接后重试')
+      } else {
+        setModelFetchError(errorMessage)
+      }
+      setAvailableModels([])
+    } finally {
+      setFetchingModels(false)
+    }
+  }, [getProviderConfig])
+
+  // 当选择的提供商变化时，获取模型列表
+  useEffect(() => {
+    if (editDialogOpen && editingModel?.api_provider) {
+      fetchModelsForProvider(editingModel.api_provider)
+    }
+  }, [editDialogOpen, editingModel?.api_provider, fetchModelsForProvider])
 
   // 重启麦麦
   const handleRestart = async () => {
@@ -1137,31 +1258,17 @@ export function ModelConfigPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="model_identifier">模型标识符 *</Label>
-              <Input
-                id="model_identifier"
-                value={editingModel?.model_identifier || ''}
-                onChange={(e) =>
-                  setEditingModel((prev) =>
-                    prev ? { ...prev, model_identifier: e.target.value } : null
-                  )
-                }
-                placeholder="Qwen/Qwen3-30B-A3B-Instruct-2507"
-              />
-              <p className="text-xs text-muted-foreground">
-                API 提供商提供的模型 ID
-              </p>
-            </div>
-
-            <div className="grid gap-2">
               <Label htmlFor="api_provider">API 提供商 *</Label>
               <Select
                 value={editingModel?.api_provider || ''}
-                onValueChange={(value) =>
+                onValueChange={(value) => {
                   setEditingModel((prev) =>
                     prev ? { ...prev, api_provider: value } : null
                   )
-                }
+                  // 清空模型列表和错误状态，等待 useEffect 重新获取
+                  setAvailableModels([])
+                  setModelFetchError(null)
+                }}
               >
                 <SelectTrigger id="api_provider">
                   <SelectValue placeholder="选择提供商" />
@@ -1174,6 +1281,169 @@ export function ModelConfigPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="model_identifier">模型标识符 *</Label>
+                {matchedTemplate?.modelFetcher && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {matchedTemplate.display_name}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2"
+                      onClick={() => editingModel?.api_provider && fetchModelsForProvider(editingModel.api_provider, true)}
+                      disabled={fetchingModels}
+                    >
+                      {fetchingModels ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+              
+              {/* 模型标识符 Combobox */}
+              {matchedTemplate?.modelFetcher ? (
+                <Popover open={modelComboboxOpen} onOpenChange={setModelComboboxOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={modelComboboxOpen}
+                      className="w-full justify-between font-normal"
+                      disabled={fetchingModels || !!modelFetchError}
+                    >
+                      {fetchingModels ? (
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          正在获取模型列表...
+                        </span>
+                      ) : modelFetchError ? (
+                        <span className="text-muted-foreground text-sm">点击下方输入框手动填写</span>
+                      ) : editingModel?.model_identifier ? (
+                        <span className="truncate">{editingModel.model_identifier}</span>
+                      ) : (
+                        <span className="text-muted-foreground">搜索或选择模型...</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                    <Command>
+                      <CommandInput placeholder="搜索模型..." />
+                      <ScrollArea className="h-[300px]">
+                        <CommandList className="max-h-none overflow-visible">
+                          <CommandEmpty>
+                            {modelFetchError ? (
+                              <div className="py-4 px-2 text-center space-y-2">
+                                <p className="text-sm text-destructive">{modelFetchError}</p>
+                                {!modelFetchError.includes('API Key') && (
+                                  <Button
+                                    variant="link"
+                                    size="sm"
+                                    onClick={() => editingModel?.api_provider && fetchModelsForProvider(editingModel.api_provider, true)}
+                                  >
+                                    重试
+                                  </Button>
+                                )}
+                              </div>
+                            ) : (
+                              '未找到匹配的模型'
+                            )}
+                          </CommandEmpty>
+                          <CommandGroup heading="可用模型">
+                            {availableModels.map((model) => (
+                              <CommandItem
+                                key={model.id}
+                                value={model.id}
+                                onSelect={() => {
+                                  setEditingModel((prev) =>
+                                    prev ? { ...prev, model_identifier: model.id } : null
+                                  )
+                                  setModelComboboxOpen(false)
+                                }}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${
+                                    editingModel?.model_identifier === model.id ? 'opacity-100' : 'opacity-0'
+                                  }`}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{model.id}</span>
+                                  {model.name !== model.id && (
+                                    <span className="text-xs text-muted-foreground">{model.name}</span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                          <CommandGroup heading="手动输入">
+                            <CommandItem
+                              value="__manual_input__"
+                              onSelect={() => {
+                                setModelComboboxOpen(false)
+                                // 聚焦到手动输入框（如果需要的话可以实现）
+                              }}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              手动输入模型标识符...
+                            </CommandItem>
+                          </CommandGroup>
+                        </CommandList>
+                      </ScrollArea>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <Input
+                  id="model_identifier"
+                  value={editingModel?.model_identifier || ''}
+                  onChange={(e) =>
+                    setEditingModel((prev) =>
+                      prev ? { ...prev, model_identifier: e.target.value } : null
+                    )
+                  }
+                  placeholder="Qwen/Qwen3-30B-A3B-Instruct-2507"
+                />
+              )}
+              
+              {/* 错误提示 */}
+              {modelFetchError && matchedTemplate?.modelFetcher && (
+                <Alert variant="destructive" className="mt-2 py-2">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    {modelFetchError}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {/* 手动输入区域 - 当使用 Combobox 时也显示一个可编辑的输入框 */}
+              {matchedTemplate?.modelFetcher && (
+                <Input
+                  value={editingModel?.model_identifier || ''}
+                  onChange={(e) =>
+                    setEditingModel((prev) =>
+                      prev ? { ...prev, model_identifier: e.target.value } : null
+                    )
+                  }
+                  placeholder="或手动输入模型标识符"
+                  className="mt-2"
+                />
+              )}
+              
+              <p className="text-xs text-muted-foreground">
+                {modelFetchError 
+                  ? '请手动输入模型标识符，或前往"模型提供商配置"检查 API Key'
+                  : matchedTemplate?.modelFetcher 
+                    ? `已识别为 ${matchedTemplate.display_name}，支持自动获取模型列表` 
+                    : 'API 提供商提供的模型 ID'}
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
