@@ -226,12 +226,6 @@ export function ExpressionManagementPage() {
     }
   }
 
-  // 格式化时间
-  const formatTime = (timestamp: number | null) => {
-    if (!timestamp) return '-'
-    return new Date(timestamp * 1000).toLocaleString('zh-CN')
-  }
-
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col p-4 sm:p-6">
       {/* 页面标题 */}
