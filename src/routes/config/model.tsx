@@ -236,12 +236,14 @@ export function ModelConfigPage() {
       console.error('获取模型列表失败:', error)
       const errorMessage = (error as Error).message || '获取模型列表失败'
       // 根据错误类型提供更友好的提示
-      if (errorMessage.includes('401') || errorMessage.includes('无效') || errorMessage.includes('过期')) {
+      if (errorMessage.includes('无效') || errorMessage.includes('过期') || errorMessage.includes('API Key')) {
         setModelFetchError('API Key 无效或已过期，请检查"模型提供商配置"中的密钥')
-      } else if (errorMessage.includes('403') || errorMessage.includes('权限')) {
+      } else if (errorMessage.includes('权限')) {
         setModelFetchError('没有权限获取模型列表，请检查 API Key 权限')
       } else if (errorMessage.includes('timeout') || errorMessage.includes('超时')) {
         setModelFetchError('请求超时，请检查网络连接后重试')
+      } else if (errorMessage.includes('不支持')) {
+        setModelFetchError('该提供商不支持自动获取模型列表，请手动输入')
       } else {
         setModelFetchError(errorMessage)
       }

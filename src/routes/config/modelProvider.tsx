@@ -913,6 +913,7 @@ export function ModelProviderConfigPage() {
             </DialogDescription>
           </DialogHeader>
 
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }} autoComplete="off">
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="template">提供商模板</Label>
@@ -1120,11 +1121,12 @@ export function ModelProviderConfigPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleSaveEdit}>保存</Button>
+            <Button type="submit">保存</Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

@@ -224,6 +224,13 @@ export async function fetchProviderModels(
   })
   
   const response = await fetchWithAuth(`/api/webui/models/list?${params}`)
+  
+  // 处理非 2xx 响应
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `获取模型列表失败 (${response.status})`)
+  }
+  
   const data: FetchModelsResponse = await response.json()
   
   if (!data.success) {
