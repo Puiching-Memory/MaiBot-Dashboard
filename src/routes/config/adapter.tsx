@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Info, Upload, Download, FileText, Trash2, FolderOpen, Save, RefreshCw, Package, Container } from 'lucide-react'
+import { Info, Upload, Download, FileText, Trash2, FolderOpen, Save, RefreshCw, Package, Container, AlertCircle } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -119,7 +119,7 @@ const PRESETS = {
   docker: {
     name: 'Docker',
     description: 'Docker Compose 部署的适配器配置',
-    path: './docker-config/adapters/config.toml',
+    path: '/MaiMBot/adapters-config/config.toml',
     icon: Container,
   },
 } as const
@@ -655,6 +655,14 @@ export function AdapterConfigPage() {
               管理麦麦的 QQ 适配器的配置文件
             </p>
           </div>
+        </div>
+
+        {/* 提示信息 */}
+        <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <p className="text-sm">
+            适配器配置保存之后使用 WebUI 的重启功能适配器并不会重启，需要手动重启适配器。
+          </p>
         </div>
 
         {/* 模式选择 */}
