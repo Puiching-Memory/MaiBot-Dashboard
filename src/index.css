@@ -138,3 +138,27 @@
   z-index: 999;
 }
 
+/* React Joyride Tour 样式 - 确保在 Dialog 之上 */
+.__floater {
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+}
+
+.react-joyride__overlay {
+  z-index: 99998 !important;
+}
+
+.react-joyride__spotlight {
+  z-index: 99998 !important;
+}
+
+/* Tour tooltip 内的按钮需要可点击 */
+.react-joyride__tooltip {
+  pointer-events: auto !important;
+}
+
+#tour-portal-container * {
+  pointer-events: auto;
+}
+
+

@@ -37,6 +37,7 @@ interface MenuItem {
   icon: ComponentType<LucideProps>
   label: string
   path: string
+  tourId?: string
 }
 
 interface MenuSection {
@@ -79,8 +80,8 @@ export function Layout({ children }: LayoutProps) {
       title: '麦麦配置编辑',
       items: [
         { icon: FileText, label: '麦麦主程序配置', path: '/config/bot' },
-        { icon: Server, label: 'AI模型厂商配置', path: '/config/modelProvider' },
-        { icon: Boxes, label: '模型管理与分配', path: '/config/model' },
+        { icon: Server, label: 'AI模型厂商配置', path: '/config/modelProvider', tourId: 'sidebar-model-provider' },
+        { icon: Boxes, label: '模型管理与分配', path: '/config/model', tourId: 'sidebar-model-management' },
         { icon: Sliders, label: '麦麦适配器配置', path: '/config/adapter' },
       ],
     },
@@ -240,6 +241,7 @@ export function Layout({ children }: LayoutProps) {
                           <TooltipTrigger asChild>
                             <Link
                               to={item.path}
+                              data-tour={item.tourId}
                               className={cn(
                                 'relative flex items-center rounded-lg py-2 transition-all duration-300',
                                 'hover:bg-accent hover:text-accent-foreground',

@@ -57,7 +57,7 @@ import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Pencil, Trash2, Save, Search, Info, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, HelpCircle, Check, ChevronsUpDown, RefreshCw, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Save, Search, Info, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, HelpCircle, Check, ChevronsUpDown, RefreshCw, Loader2, GraduationCap } from 'lucide-react'
 import { getModelConfig, updateModelConfig, updateModelConfigSection, fetchProviderModels, type ModelListItem } from '@/lib/config-api'
 import { restartMaiBot } from '@/lib/system-api'
 import { useToast } from '@/hooks/use-toast'
@@ -65,6 +65,9 @@ import { MultiSelect } from '@/components/ui/multi-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { RestartingOverlay } from '@/components/RestartingOverlay'
 import { findTemplateByBaseUrl, type ProviderTemplate } from './providerTemplates'
+import { useTour } from '@/components/tour'
+import { MODEL_ASSIGNMENT_TOUR_ID, modelAssignmentTourSteps, STEP_ROUTE_MAP } from '@/components/tour/tours/model-assignment-tour'
+import { useNavigate } from '@tanstack/react-router'
 
 interface ModelInfo {
   model_identifier: string
@@ -142,12 +145,85 @@ export function ModelConfigPage() {
   const [modelComboboxOpen, setModelComboboxOpen] = useState(false)
   const [matchedTemplate, setMatchedTemplate] = useState<ProviderTemplate | null>(null)
   
-  const { toast} = useToast()
+  const { toast } = useToast()
+  const navigate = useNavigate()
+  const { registerTour, startTour, state: tourState, goToStep } = useTour()
 
   // 用于防抖的定时器
   const modelsAutoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const taskConfigAutoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initialLoadRef = useRef(true)
+
+  // 注册 Tour
+  useEffect(() => {
+    registerTour(MODEL_ASSIGNMENT_TOUR_ID, modelAssignmentTourSteps)
+  }, [registerTour])
+
+  // 监听 Tour 步骤变化，处理页面导航
+  useEffect(() => {
+    if (tourState.activeTourId === MODEL_ASSIGNMENT_TOUR_ID && tourState.isRunning) {
+      const targetRoute = STEP_ROUTE_MAP[tourState.stepIndex]
+      if (targetRoute && !window.location.pathname.endsWith(targetRoute.replace('/config/', ''))) {
+        navigate({ to: targetRoute })
+      }
+    }
+  }, [tourState.stepIndex, tourState.activeTourId, tourState.isRunning, navigate])
+
+  // 监听 Tour 步骤变化，当从弹窗内步骤回退到弹窗外步骤时，自动关闭弹窗
+  // 模型弹窗步骤: 12-17 (index 12-17)，弹窗外步骤: 10-11 (index 10-11)
+  const prevTourStepRef = useRef(tourState.stepIndex)
+  useEffect(() => {
+    if (tourState.activeTourId === MODEL_ASSIGNMENT_TOUR_ID && tourState.isRunning) {
+      const prevStep = prevTourStepRef.current
+      const currentStep = tourState.stepIndex
+      
+      // 如果从弹窗内步骤 (12-17) 回退到弹窗外步骤 (<=11)，关闭弹窗
+      if (prevStep >= 12 && prevStep <= 17 && currentStep < 12) {
+        setEditDialogOpen(false)
+      }
+      
+      prevTourStepRef.current = currentStep
+    }
+  }, [tourState.stepIndex, tourState.activeTourId, tourState.isRunning])
+
+  // 处理 Tour 中需要用户点击才能继续的步骤
+  useEffect(() => {
+    if (tourState.activeTourId !== MODEL_ASSIGNMENT_TOUR_ID || !tourState.isRunning) return
+
+    const handleTourClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      const currentStep = tourState.stepIndex
+
+      // Step 3 (index 2): 点击添加提供商按钮
+      if (currentStep === 2 && target.closest('[data-tour="add-provider-button"]')) {
+        setTimeout(() => goToStep(3), 300)
+      }
+      // Step 10 (index 9): 点击取消按钮（关闭提供商弹窗）
+      else if (currentStep === 9 && target.closest('[data-tour="provider-cancel-button"]')) {
+        setTimeout(() => goToStep(10), 300)
+      }
+      // Step 12 (index 11): 点击添加模型按钮
+      else if (currentStep === 11 && target.closest('[data-tour="add-model-button"]')) {
+        setTimeout(() => goToStep(12), 300)
+      }
+      // Step 18 (index 17): 点击取消按钮（关闭模型弹窗）
+      else if (currentStep === 17 && target.closest('[data-tour="model-cancel-button"]')) {
+        setTimeout(() => goToStep(18), 300)
+      }
+      // Step 19 (index 18): 点击为模型分配功能标签页
+      else if (currentStep === 18 && target.closest('[data-tour="tasks-tab-trigger"]')) {
+        setTimeout(() => goToStep(19), 300)
+      }
+    }
+
+    document.addEventListener('click', handleTourClick, true)
+    return () => document.removeEventListener('click', handleTourClick, true)
+  }, [tourState, goToStep])
+
+  // 开始引导
+  const handleStartTour = () => {
+    startTour(MODEL_ASSIGNMENT_TOUR_ID)
+  }
 
   // 加载配置
   useEffect(() => {
@@ -662,7 +738,7 @@ export function ModelConfigPage() {
               disabled={saving || autoSaving || !hasUnsavedChanges || restarting} 
               size="sm"
               variant="outline"
-              className="flex-1 sm:flex-none"
+              className="flex-1 sm:flex-none sm:min-w-[120px]"
             >
               <Save className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
               {saving ? '保存中...' : autoSaving ? '自动保存中...' : hasUnsavedChanges ? '保存配置' : '已保存'}
@@ -672,7 +748,7 @@ export function ModelConfigPage() {
                 <Button
                   disabled={saving || autoSaving || restarting}
                   size="sm"
-                  className="flex-1 sm:flex-none"
+                  className="flex-1 sm:flex-none sm:min-w-[120px]"
                 >
                   <Power className="mr-2 h-4 w-4" />
                   {restarting ? '重启中...' : hasUnsavedChanges ? '保存并重启' : '重启麦麦'}
@@ -811,11 +887,24 @@ export function ModelConfigPage() {
           </AlertDescription>
         </Alert>
 
+        {/* 新手引导入口 - 仅在桌面端显示，移动端隐藏 */}
+        <Alert className="hidden lg:flex border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors" onClick={handleStartTour}>
+          <GraduationCap className="h-4 w-4 text-primary" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              <strong className="text-primary">新手引导：</strong>不知道如何配置模型？点击这里开始学习如何为麦麦的组件分配模型。
+            </span>
+            <Button variant="outline" size="sm" className="ml-4 shrink-0">
+              开始引导
+            </Button>
+          </AlertDescription>
+        </Alert>
+
         {/* 标签页 */}
         <Tabs defaultValue="models" className="w-full">
           <TabsList className="grid w-full max-w-full sm:max-w-md grid-cols-2">
             <TabsTrigger value="models">添加模型</TabsTrigger>
-            <TabsTrigger value="tasks">为模型分配功能</TabsTrigger>
+            <TabsTrigger value="tasks" data-tour="tasks-tab-trigger">为模型分配功能</TabsTrigger>
           </TabsList>
           {/* 模型配置标签页 */}
           <TabsContent value="models" className="space-y-4 mt-0">
@@ -835,7 +924,7 @@ export function ModelConfigPage() {
                     批量删除 ({selectedModels.size})
                   </Button>
                 )}
-                <Button onClick={() => openEditDialog(null, null)} size="sm" variant="outline" className="w-full sm:w-auto">
+                <Button onClick={() => openEditDialog(null, null)} size="sm" variant="outline" className="w-full sm:w-auto" data-tour="add-model-button">
                   <Plus className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
                   添加模型
                 </Button>
@@ -1124,6 +1213,7 @@ export function ModelConfigPage() {
                 taskConfig={taskConfig.utils}
                 modelNames={modelNames}
                 onChange={(field, value) => updateTaskConfig('utils', field, value)}
+                dataTour="task-model-select"
               />
 
               {/* Utils Small 任务 */}
@@ -1233,7 +1323,11 @@ export function ModelConfigPage() {
 
       {/* 编辑模型对话框 */}
       <Dialog open={editDialogOpen} onOpenChange={handleEditDialogClose}>
-        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto" 
+          data-tour="model-dialog"
+          preventOutsideClose={tourState.isRunning}
+        >
           <DialogHeader>
             <DialogTitle>
               {editingIndex !== null ? '编辑模型' : '添加模型'}
@@ -1242,7 +1336,7 @@ export function ModelConfigPage() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
+            <div className="grid gap-2" data-tour="model-name-input">
               <Label htmlFor="model_name">模型名称 *</Label>
               <Input
                 id="model_name"
@@ -1259,7 +1353,7 @@ export function ModelConfigPage() {
               </p>
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2" data-tour="model-provider-select">
               <Label htmlFor="api_provider">API 提供商 *</Label>
               <Select
                 value={editingModel?.api_provider || ''}
@@ -1285,7 +1379,7 @@ export function ModelConfigPage() {
               </Select>
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2" data-tour="model-identifier-input">
               <div className="flex items-center justify-between">
                 <Label htmlFor="model_identifier">模型标识符 *</Label>
                 {matchedTemplate?.modelFetcher && (
@@ -1507,10 +1601,10 @@ export function ModelConfigPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} data-tour="model-cancel-button">
               取消
             </Button>
-            <Button onClick={handleSaveEdit}>保存</Button>
+            <Button onClick={handleSaveEdit} data-tour="model-save-button">保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1572,6 +1666,7 @@ interface TaskConfigCardProps {
   onChange: (field: keyof TaskConfig, value: string[] | number) => void
   hideTemperature?: boolean
   hideMaxTokens?: boolean
+  dataTour?: string
 }
 
 function TaskConfigCard({
@@ -1582,6 +1677,7 @@ function TaskConfigCard({
   onChange,
   hideTemperature = false,
   hideMaxTokens = false,
+  dataTour,
 }: TaskConfigCardProps) {
   const handleModelChange = (values: string[]) => {
     onChange('model_list', values)
@@ -1596,7 +1692,7 @@ function TaskConfigCard({
 
       <div className="grid gap-4">
         {/* 模型列表 */}
-        <div className="grid gap-2">
+        <div className="grid gap-2" data-tour={dataTour}>
           <Label>模型列表</Label>
           <MultiSelect
             options={modelNames.map((name) => ({ label: name, value: name }))}

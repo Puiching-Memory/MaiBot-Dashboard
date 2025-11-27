@@ -59,6 +59,9 @@ import { getModelConfig, updateModelConfig, updateModelConfigSection } from '@/l
 import { restartMaiBot } from '@/lib/system-api'
 import { useToast } from '@/hooks/use-toast'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useTour } from '@/components/tour'
+import { MODEL_ASSIGNMENT_TOUR_ID, modelAssignmentTourSteps, STEP_ROUTE_MAP } from '@/components/tour/tours/model-assignment-tour'
+import { useNavigate } from '@tanstack/react-router'
 import { RestartingOverlay } from '@/components/RestartingOverlay'
 import { PROVIDER_TEMPLATES } from './providerTemplates'
 
@@ -95,10 +98,66 @@ export function ModelProviderConfigPage() {
   const [pageSize, setPageSize] = useState(20)
   const [jumpToPage, setJumpToPage] = useState('')
   const { toast } = useToast()
+  const navigate = useNavigate()
+  const { state: tourState, goToStep, registerTour } = useTour()
   
   // 用于防抖的定时器
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initialLoadRef = useRef(true)
+
+  // 注册 Tour（确保跨页导航时 Tour 仍然可用）
+  useEffect(() => {
+    registerTour(MODEL_ASSIGNMENT_TOUR_ID, modelAssignmentTourSteps)
+  }, [registerTour])
+
+  // 监听 Tour 步骤变化，处理页面导航
+  useEffect(() => {
+    if (tourState.activeTourId === MODEL_ASSIGNMENT_TOUR_ID && tourState.isRunning) {
+      const targetRoute = STEP_ROUTE_MAP[tourState.stepIndex]
+      if (targetRoute && !window.location.pathname.endsWith(targetRoute.replace('/config/', ''))) {
+        navigate({ to: targetRoute })
+      }
+    }
+  }, [tourState.stepIndex, tourState.activeTourId, tourState.isRunning, navigate])
+
+  // 监听 Tour 步骤变化，当从弹窗内步骤回退到弹窗外步骤时，自动关闭弹窗
+  // 提供商弹窗步骤: 3-9 (index 3-9)，弹窗外步骤: 0-2 (index 0-2)
+  const prevTourStepRef = useRef(tourState.stepIndex)
+  useEffect(() => {
+    if (tourState.activeTourId === MODEL_ASSIGNMENT_TOUR_ID && tourState.isRunning) {
+      const prevStep = prevTourStepRef.current
+      const currentStep = tourState.stepIndex
+      
+      // 如果从弹窗内步骤 (3-9) 回退到弹窗外步骤 (0-2)，关闭弹窗
+      if (prevStep >= 3 && prevStep <= 9 && currentStep < 3) {
+        setEditDialogOpen(false)
+      }
+      
+      prevTourStepRef.current = currentStep
+    }
+  }, [tourState.stepIndex, tourState.activeTourId, tourState.isRunning])
+
+  // 处理 Tour 中需要用户点击才能继续的步骤
+  useEffect(() => {
+    if (tourState.activeTourId !== MODEL_ASSIGNMENT_TOUR_ID || !tourState.isRunning) return
+
+    const handleTourClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      const currentStep = tourState.stepIndex
+
+      // Step 3 (index 2): 点击添加提供商按钮
+      if (currentStep === 2 && target.closest('[data-tour="add-provider-button"]')) {
+        setTimeout(() => goToStep(3), 300)
+      }
+      // Step 10 (index 9): 点击取消按钮（关闭提供商弹窗）
+      else if (currentStep === 9 && target.closest('[data-tour="provider-cancel-button"]')) {
+        setTimeout(() => goToStep(10), 300)
+      }
+    }
+
+    document.addEventListener('click', handleTourClick, true)
+    return () => document.removeEventListener('click', handleTourClick, true)
+  }, [tourState, goToStep])
 
   // 加载配置
   useEffect(() => {
@@ -498,7 +557,7 @@ export function ModelProviderConfigPage() {
               批量删除 ({selectedProviders.size})
             </Button>
           )}
-          <Button onClick={() => openEditDialog(null, null)} size="sm" className="w-full sm:w-auto">
+          <Button onClick={() => openEditDialog(null, null)} size="sm" className="w-full sm:w-auto" data-tour="add-provider-button">
             <Plus className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
             添加提供商
           </Button>
@@ -507,7 +566,7 @@ export function ModelProviderConfigPage() {
             disabled={saving || autoSaving || !hasUnsavedChanges || restarting} 
             size="sm" 
             variant="outline"
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto sm:min-w-[120px]"
           >
             <Save className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
             {saving ? '保存中...' : autoSaving ? '自动保存中...' : hasUnsavedChanges ? '保存配置' : '已保存'}
@@ -517,7 +576,7 @@ export function ModelProviderConfigPage() {
               <Button
                 disabled={saving || autoSaving || restarting}
                 size="sm"
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto sm:min-w-[120px]"
               >
                 <Power className="mr-2 h-4 w-4" />
                 {restarting ? '重启中...' : hasUnsavedChanges ? '保存并重启' : '重启麦麦'}
@@ -903,7 +962,11 @@ export function ModelProviderConfigPage() {
 
       {/* 编辑对话框 */}
       <Dialog open={editDialogOpen} onOpenChange={handleEditDialogClose}>
-        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto" 
+          data-tour="provider-dialog"
+          preventOutsideClose={tourState.isRunning}
+        >
           <DialogHeader>
             <DialogTitle>
               {editingIndex !== null ? '编辑提供商' : '添加提供商'}
@@ -915,7 +978,7 @@ export function ModelProviderConfigPage() {
 
           <form onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }} autoComplete="off">
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
+            <div className="grid gap-2" data-tour="provider-template-select">
               <Label htmlFor="template">提供商模板</Label>
               <Popover open={templateComboboxOpen} onOpenChange={setTemplateComboboxOpen}>
                 <PopoverTrigger asChild>
@@ -963,7 +1026,7 @@ export function ModelProviderConfigPage() {
               </p>
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2" data-tour="provider-name-input">
               <Label htmlFor="name">名称 *</Label>
               <Input
                 id="name"
@@ -977,7 +1040,7 @@ export function ModelProviderConfigPage() {
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2" data-tour="provider-url-input">
               <Label htmlFor="base_url">基础 URL *</Label>
               <Input
                 id="base_url"
@@ -998,7 +1061,7 @@ export function ModelProviderConfigPage() {
               )}
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-2" data-tour="provider-apikey-input">
               <Label htmlFor="api_key">API Key *</Label>
               <div className="flex gap-2">
                 <Input
@@ -1121,10 +1184,10 @@ export function ModelProviderConfigPage() {
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)} data-tour="provider-cancel-button">
               取消
             </Button>
-            <Button type="submit">保存</Button>
+            <Button type="submit" data-tour="provider-save-button">保存</Button>
           </DialogFooter>
           </form>
         </DialogContent>
