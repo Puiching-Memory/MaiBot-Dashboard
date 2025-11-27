@@ -270,6 +270,26 @@ export function IndexPage() {
         </div>
       </div>
 
+      {/* 一言 */}
+      <div className="flex items-center gap-3 px-4 py-2 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20">
+        {hitokotoLoading ? (
+          <Skeleton className="h-5 flex-1" />
+        ) : hitokoto ? (
+          <p className="flex-1 text-sm text-muted-foreground italic truncate">
+            "{hitokoto.hitokoto}" —— {hitokoto.from}
+          </p>
+        ) : null}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-7 w-7 shrink-0" 
+          onClick={fetchHitokoto}
+          disabled={hitokotoLoading}
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${hitokotoLoading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
       {/* 核心指标卡片 */}
       <div className="grid gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -680,30 +700,6 @@ export function IndexPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* 一言 */}
-      <Card className="border-2 border-primary/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">每日一言</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {hitokotoLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-6 w-3/4" />
-              <Skeleton className="h-4 w-1/4" />
-            </div>
-          ) : hitokoto ? (
-            <div className="space-y-2">
-              <p className="text-lg font-medium leading-relaxed italic">
-                "{hitokoto.hitokoto}"
-              </p>
-              <p className="text-sm text-muted-foreground text-right">
-                —— {hitokoto.from}
-              </p>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
     </div>
     </ScrollArea>
   )
