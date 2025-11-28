@@ -424,3 +424,189 @@ export async function updatePlugin(pluginId: string, repositoryUrl: string, bran
   
   return await response.json()
 }
+
+
+// ============ 插件配置管理 ============
+
+/**
+ * 配置字段定义
+ */
+export interface ConfigFieldSchema {
+  name: string
+  type: string
+  default: unknown
+  description: string
+  example?: string
+  required: boolean
+  choices?: unknown[]
+  min?: number
+  max?: number
+  step?: number
+  pattern?: string
+  max_length?: number
+  label: string
+  placeholder?: string
+  hint?: string
+  icon?: string
+  hidden: boolean
+  disabled: boolean
+  order: number
+  input_type?: string
+  ui_type: string
+  rows?: number
+  group?: string
+  depends_on?: string
+  depends_value?: unknown
+}
+
+/**
+ * 配置节定义
+ */
+export interface ConfigSectionSchema {
+  name: string
+  title: string
+  description?: string
+  icon?: string
+  collapsed: boolean
+  order: number
+  fields: Record<string, ConfigFieldSchema>
+}
+
+/**
+ * 配置标签页定义
+ */
+export interface ConfigTabSchema {
+  id: string
+  title: string
+  sections: string[]
+  icon?: string
+  order: number
+  badge?: string
+}
+
+/**
+ * 配置布局定义
+ */
+export interface ConfigLayoutSchema {
+  type: 'auto' | 'tabs' | 'pages'
+  tabs: ConfigTabSchema[]
+}
+
+/**
+ * 插件配置 Schema
+ */
+export interface PluginConfigSchema {
+  plugin_id: string
+  plugin_info: {
+    name: string
+    version: string
+    description: string
+    author: string
+  }
+  sections: Record<string, ConfigSectionSchema>
+  layout: ConfigLayoutSchema
+  _note?: string
+}
+
+/**
+ * 获取插件配置 Schema
+ */
+export async function getPluginConfigSchema(pluginId: string): Promise<PluginConfigSchema> {
+  const response = await fetchWithAuth(`/api/webui/plugins/config/${pluginId}/schema`, {
+    headers: getAuthHeaders()
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '获取配置 Schema 失败')
+  }
+  
+  const result = await response.json()
+  
+  if (!result.success) {
+    throw new Error(result.message || '获取配置 Schema 失败')
+  }
+  
+  return result.schema
+}
+
+/**
+ * 获取插件当前配置值
+ */
+export async function getPluginConfig(pluginId: string): Promise<Record<string, unknown>> {
+  const response = await fetchWithAuth(`/api/webui/plugins/config/${pluginId}`, {
+    headers: getAuthHeaders()
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '获取配置失败')
+  }
+  
+  const result = await response.json()
+  
+  if (!result.success) {
+    throw new Error(result.message || '获取配置失败')
+  }
+  
+  return result.config
+}
+
+/**
+ * 更新插件配置
+ */
+export async function updatePluginConfig(
+  pluginId: string,
+  config: Record<string, unknown>
+): Promise<{ success: boolean; message: string; note?: string }> {
+  const response = await fetchWithAuth(`/api/webui/plugins/config/${pluginId}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ config })
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '保存配置失败')
+  }
+  
+  return await response.json()
+}
+
+/**
+ * 重置插件配置为默认值
+ */
+export async function resetPluginConfig(
+  pluginId: string
+): Promise<{ success: boolean; message: string; backup?: string }> {
+  const response = await fetchWithAuth(`/api/webui/plugins/config/${pluginId}/reset`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '重置配置失败')
+  }
+  
+  return await response.json()
+}
+
+/**
+ * 切换插件启用状态
+ */
+export async function togglePlugin(
+  pluginId: string
+): Promise<{ success: boolean; enabled: boolean; message: string; note?: string }> {
+  const response = await fetchWithAuth(`/api/webui/plugins/config/${pluginId}/toggle`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || '切换状态失败')
+  }
+  
+  return await response.json()
+}
