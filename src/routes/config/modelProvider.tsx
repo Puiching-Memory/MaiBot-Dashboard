@@ -54,8 +54,9 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, Pencil, Trash2, Save, Eye, EyeOff, Copy, Search, Info, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Check, ChevronsUpDown, HelpCircle } from 'lucide-react'
-import { getModelConfig, updateModelConfig, updateModelConfigSection } from '@/lib/config-api'
+import { Badge } from '@/components/ui/badge'
+import { Plus, Pencil, Trash2, Save, Eye, EyeOff, Copy, Search, Info, Power, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Check, ChevronsUpDown, HelpCircle, Zap, Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { getModelConfig, updateModelConfig, updateModelConfigSection, testProviderConnection, type TestConnectionResult } from '@/lib/config-api'
 import { restartMaiBot } from '@/lib/system-api'
 import { useToast } from '@/hooks/use-toast'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -97,6 +98,11 @@ export function ModelProviderConfigPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [jumpToPage, setJumpToPage] = useState('')
+  
+  // 测试连接状态
+  const [testingProviders, setTestingProviders] = useState<Set<string>>(new Set())
+  const [testResults, setTestResults] = useState<Map<string, TestConnectionResult>>(new Map())
+  
   const { toast } = useToast()
   const navigate = useNavigate()
   const { state: tourState, goToStep, registerTour } = useTour()
@@ -527,6 +533,112 @@ export function ModelProviderConfigPage() {
     }
   }
 
+  // 测试单个提供商连接
+  const handleTestConnection = async (providerName: string) => {
+    // 标记正在测试
+    setTestingProviders(prev => new Set(prev).add(providerName))
+    
+    try {
+      const result = await testProviderConnection(providerName)
+      setTestResults(prev => new Map(prev).set(providerName, result))
+      
+      // 显示结果 toast
+      if (result.network_ok) {
+        if (result.api_key_valid === true) {
+          toast({
+            title: '连接正常',
+            description: `${providerName} 网络连接正常，API Key 有效 (${result.latency_ms}ms)`,
+          })
+        } else if (result.api_key_valid === false) {
+          toast({
+            title: '连接正常但 Key 无效',
+            description: `${providerName} 网络连接正常，但 API Key 无效或已过期`,
+            variant: 'destructive',
+          })
+        } else {
+          toast({
+            title: '网络连接正常',
+            description: `${providerName} 可以访问 (${result.latency_ms}ms)`,
+          })
+        }
+      } else {
+        toast({
+          title: '连接失败',
+          description: result.error || '无法连接到提供商',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      toast({
+        title: '测试失败',
+        description: (error as Error).message,
+        variant: 'destructive',
+      })
+    } finally {
+      setTestingProviders(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(providerName)
+        return newSet
+      })
+    }
+  }
+
+  // 批量测试所有提供商
+  const handleTestAllConnections = async () => {
+    for (const provider of providers) {
+      await handleTestConnection(provider.name)
+    }
+  }
+
+  // 渲染测试状态指示器
+  const renderTestStatus = (providerName: string) => {
+    const isTesting = testingProviders.has(providerName)
+    const result = testResults.get(providerName)
+    
+    if (isTesting) {
+      return (
+        <Badge variant="secondary" className="gap-1">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          测试中
+        </Badge>
+      )
+    }
+    
+    if (!result) return null
+    
+    if (result.network_ok) {
+      if (result.api_key_valid === true) {
+        return (
+          <Badge className="gap-1 bg-green-600 hover:bg-green-700">
+            <CheckCircle2 className="h-3 w-3" />
+            正常
+          </Badge>
+        )
+      } else if (result.api_key_valid === false) {
+        return (
+          <Badge variant="destructive" className="gap-1">
+            <AlertCircle className="h-3 w-3" />
+            Key无效
+          </Badge>
+        )
+      } else {
+        return (
+          <Badge className="gap-1 bg-blue-600 hover:bg-blue-700">
+            <CheckCircle2 className="h-3 w-3" />
+            可访问
+          </Badge>
+        )
+      }
+    } else {
+      return (
+        <Badge variant="destructive" className="gap-1">
+          <XCircle className="h-3 w-3" />
+          离线
+        </Badge>
+      )
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
@@ -557,6 +669,16 @@ export function ModelProviderConfigPage() {
               批量删除 ({selectedProviders.size})
             </Button>
           )}
+          <Button 
+            onClick={handleTestAllConnections} 
+            size="sm" 
+            variant="outline"
+            className="w-full sm:w-auto"
+            disabled={providers.length === 0 || testingProviders.size > 0}
+          >
+            <Zap className="mr-2 h-4 w-4" />
+            {testingProviders.size > 0 ? `测试中 (${testingProviders.size})` : '测试全部'}
+          </Button>
           <Button onClick={() => openEditDialog(null, null)} size="sm" className="w-full sm:w-auto" data-tour="add-provider-button">
             <Plus className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
             添加提供商
@@ -747,25 +869,39 @@ export function ModelProviderConfigPage() {
               <div key={displayIndex} className="rounded-lg border bg-card p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-base truncate">{provider.name}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-base truncate">{provider.name}</h3>
+                      {renderTestStatus(provider.name)}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1 break-all">{provider.base_url}</p>
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleTestConnection(provider.name)}
+                      disabled={testingProviders.has(provider.name)}
+                      title="测试连接"
+                    >
+                      {testingProviders.has(provider.name) ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Zap className="h-4 w-4" />
+                      )}
+                    </Button>
                     <Button
                       variant="default"
                       size="sm"
                       onClick={() => openEditDialog(provider, actualIndex)}
                     >
-                      <Pencil className="h-4 w-4 mr-1" strokeWidth={2} fill="none" />
-                      编辑
+                      <Pencil className="h-4 w-4" strokeWidth={2} fill="none" />
                     </Button>
                     <Button
                       size="sm"
                       onClick={() => openDeleteDialog(actualIndex)}
                       className="bg-red-600 hover:bg-red-700 text-white"
                     >
-                      <Trash2 className="h-4 w-4 mr-1" strokeWidth={2} fill="none" />
-                      删除
+                      <Trash2 className="h-4 w-4" strokeWidth={2} fill="none" />
                     </Button>
                   </div>
                 </div>
@@ -805,6 +941,7 @@ export function ModelProviderConfigPage() {
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
+                  <TableHead>状态</TableHead>
                   <TableHead>名称</TableHead>
                   <TableHead>基础URL</TableHead>
                   <TableHead>客户端类型</TableHead>
@@ -817,7 +954,7 @@ export function ModelProviderConfigPage() {
             <TableBody>
               {paginatedProviders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     {searchQuery ? '未找到匹配的提供商' : '暂无提供商配置，点击"添加提供商"开始配置'}
                   </TableCell>
                 </TableRow>
@@ -832,6 +969,13 @@ export function ModelProviderConfigPage() {
                           onCheckedChange={() => toggleProviderSelection(actualIndex)}
                         />
                       </TableCell>
+                      <TableCell>
+                        {renderTestStatus(provider.name) || (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            未测试
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">{provider.name}</TableCell>
                       <TableCell className="max-w-xs truncate" title={provider.base_url}>
                         {provider.base_url}
@@ -842,6 +986,19 @@ export function ModelProviderConfigPage() {
                       <TableCell className="text-right">{provider.retry_interval}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleTestConnection(provider.name)}
+                            disabled={testingProviders.has(provider.name)}
+                            title="测试连接"
+                          >
+                            {testingProviders.has(provider.name) ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Zap className="h-4 w-4" />
+                            )}
+                          </Button>
                           <Button
                             variant="default"
                             size="sm"

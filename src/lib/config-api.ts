@@ -239,3 +239,36 @@ export async function fetchProviderModels(
   
   return data.models
 }
+
+/**
+ * 测试提供商连接结果
+ */
+export interface TestConnectionResult {
+  network_ok: boolean
+  api_key_valid: boolean | null
+  latency_ms: number | null
+  error: string | null
+  http_status: number | null
+}
+
+/**
+ * 测试提供商连接状态（通过提供商名称）
+ * @param providerName 提供商名称
+ */
+export async function testProviderConnection(providerName: string): Promise<TestConnectionResult> {
+  const params = new URLSearchParams({
+    provider_name: providerName,
+  })
+  
+  const response = await fetchWithAuth(`/api/webui/models/test-connection-by-name?${params}`, {
+    method: 'POST',
+  })
+  
+  // 处理非 2xx 响应
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.detail || `测试连接失败 (${response.status})`)
+  }
+  
+  return await response.json()
+}
