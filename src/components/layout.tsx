@@ -100,6 +100,7 @@ export function Layout({ children }: LayoutProps) {
         { icon: Package, label: '插件市场', path: '/plugins' },
         { icon: Sliders, label: '插件配置', path: '/plugin-config' },
         { icon: FileSearch, label: '日志查看器', path: '/logs' },
+        { icon: MessageSquare, label: '本地聊天室', path: '/chat' },
       ],
     },
     {

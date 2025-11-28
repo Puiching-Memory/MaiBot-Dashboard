@@ -17,6 +17,7 @@ import { LogViewerPage } from './routes/logs'
 import { PluginsPage } from './routes/plugins'
 import { PluginConfigPage } from './routes/plugin-config'
 import { PluginMirrorsPage } from './routes/plugin-mirrors'
+import { ChatPage } from './routes/chat'
 import { Layout } from './components/layout'
 import { checkAuth } from './hooks/use-auth'
 import { RouteErrorBoundary } from './components/error-boundary'
@@ -133,6 +134,13 @@ const logsRoute = createRoute({
   component: LogViewerPage,
 })
 
+// 本地聊天室路由
+const chatRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/chat',
+  component: ChatPage,
+})
+
 // 插件市场路由
 const pluginsRoute = createRoute({
   getParentRoute: () => protectedRoute,
@@ -186,6 +194,7 @@ const routeTree = rootRoute.addChildren([
     pluginConfigRoute,
     pluginMirrorsRoute,
     logsRoute,
+    chatRoute,
     settingsRoute,
   ]),
   notFoundRoute,
