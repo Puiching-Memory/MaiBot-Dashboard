@@ -177,3 +177,17 @@ export async function batchDeleteEmojis(emojiIds: number[]): Promise<{
 
   return response.json()
 }
+
+/**
+ * 获取表情包上传 URL（供 Uppy 使用）
+ */
+export function getEmojiUploadUrl(): string {
+  return `${API_BASE}/upload`
+}
+
+/**
+ * 获取批量上传 URL
+ */
+export function getEmojiBatchUploadUrl(): string {
+  return `${API_BASE}/batch/upload`
+}

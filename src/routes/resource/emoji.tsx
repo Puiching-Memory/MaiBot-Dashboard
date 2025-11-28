@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Filter,
   RefreshCw,
@@ -11,7 +11,14 @@ import {
   ChevronsRight,
   CheckCircle2,
   Ban,
+  Upload,
 } from 'lucide-react'
+import Uppy from '@uppy/core'
+import Dashboard from '@uppy/react/dashboard'
+import XHRUpload from '@uppy/xhr-upload'
+import '@uppy/core/css/style.min.css'
+import '@uppy/dashboard/css/style.min.css'
+import '@/styles/uppy-custom.css'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -66,6 +73,7 @@ import {
   banEmoji,
   getEmojiThumbnailUrl,
   batchDeleteEmojis,
+  getEmojiUploadUrl,
 } from '@/lib/emoji-api'
 
 export function EmojiManagementPage() {
@@ -88,6 +96,7 @@ export function EmojiManagementPage() {
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false)
   const [jumpToPage, setJumpToPage] = useState('')
   const [cardSize, setCardSize] = useState<'small' | 'medium' | 'large'>('medium')
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
 
   const { toast } = useToast()
 
@@ -282,11 +291,17 @@ export function EmojiManagementPage() {
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col p-4 sm:p-6">
       {/* 页面标题 */}
-      <div className="mb-4 sm:mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold">表情包管理</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          管理麦麦的表情包资源
-        </p>
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">表情包管理</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            管理麦麦的表情包资源
+          </p>
+        </div>
+        <Button onClick={() => setUploadDialogOpen(true)} className="gap-2">
+          <Upload className="h-4 w-4" />
+          上传表情包
+        </Button>
       </div>
 
       <ScrollArea className="flex-1">
@@ -769,6 +784,16 @@ export function EmojiManagementPage() {
         }}
       />
 
+      {/* 上传对话框 */}
+      <EmojiUploadDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        onSuccess={() => {
+          loadEmojiList()
+          loadStats()
+        }}
+      />
+
         </div>
       </ScrollArea>
 
@@ -1087,6 +1112,313 @@ function EmojiEditDialog({
             {saving ? '保存中...' : '保存'}
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// 上传对话框组件
+function EmojiUploadDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSuccess: () => void
+}) {
+  const [emotion, setEmotion] = useState('')
+  const [description, setDescription] = useState('')
+  const [isRegistered, setIsRegistered] = useState(true)
+  const { toast } = useToast()
+
+  // 创建 Uppy 实例
+  const uppy = useMemo(() => {
+    const token = localStorage.getItem('access-token') || ''
+    
+    const uppyInstance = new Uppy({
+      id: 'emoji-uploader',
+      autoProceed: false,
+      restrictions: {
+        maxFileSize: 10 * 1024 * 1024, // 10MB
+        allowedFileTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+        maxNumberOfFiles: 20,
+      },
+      locale: {
+        // 中文不需要复数形式，统一返回 0
+        pluralize: () => 0,
+        strings: {
+          // 核心字符串
+          addMoreFiles: '添加更多文件',
+          addingMoreFiles: '正在添加更多文件',
+          allowedFileTypes: '允许的文件类型：%{types}',
+          cancel: '取消',
+          closeModal: '关闭',
+          complete: '完成',
+          connectedToInternet: '已连接到互联网',
+          copyLink: '复制链接',
+          copyLinkToClipboardFallback: '复制下方链接',
+          copyLinkToClipboardSuccess: '链接已复制到剪贴板',
+          dashboardTitle: '文件上传',
+          dashboardWindowTitle: '文件上传窗口（按 ESC 关闭）',
+          done: '完成',
+          dropHereOr: '拖放文件到这里或 %{browse}',
+          dropHint: '将文件拖放到此处',
+          dropPasteFiles: '将文件拖放到这里或 %{browseFiles}',
+          dropPasteFolders: '将文件拖放到这里或 %{browseFolders}',
+          dropPasteBoth: '将文件拖放到这里，%{browseFiles} 或 %{browseFolders}',
+          dropPasteImportFiles: '将文件拖放到这里，%{browseFiles} 或从以下位置导入：',
+          dropPasteImportFolders: '将文件拖放到这里，%{browseFolders} 或从以下位置导入：',
+          dropPasteImportBoth: '将文件拖放到这里，%{browseFiles}，%{browseFolders} 或从以下位置导入：',
+          editFile: '编辑文件',
+          editing: '正在编辑 %{file}',
+          emptyFolderAdded: '未从空文件夹添加文件',
+          exceedsSize: '%{file} 超过了最大允许大小 %{size}',
+          failedToUpload: '上传 %{file} 失败',
+          fileSource: '文件来源：%{name}',
+          filesUploadedOfTotal: {
+            0: '已上传 %{complete} / %{smart_count} 个文件',
+            1: '已上传 %{complete} / %{smart_count} 个文件',
+          },
+          filter: '筛选',
+          finishEditingFile: '完成编辑文件',
+          folderAdded: {
+            0: '已从 %{folder} 添加 %{smart_count} 个文件',
+            1: '已从 %{folder} 添加 %{smart_count} 个文件',
+          },
+          generatingThumbnails: '正在生成缩略图...',
+          import: '导入',
+          importFiles: '从以下位置导入文件：',
+          importFrom: '从 %{name} 导入',
+          loading: '加载中...',
+          logOut: '登出',
+          myDevice: '我的设备',
+          noFilesFound: '这里没有文件或文件夹',
+          noInternetConnection: '无网络连接',
+          openFolderNamed: '打开文件夹 %{name}',
+          pause: '暂停',
+          pauseUpload: '暂停上传',
+          paused: '已暂停',
+          poweredBy: '技术支持：%{uppy}',
+          processingXFiles: {
+            0: '正在处理 %{smart_count} 个文件',
+            1: '正在处理 %{smart_count} 个文件',
+          },
+          recording: '录制中',
+          removeFile: '移除文件',
+          resetFilter: '重置筛选',
+          resume: '继续',
+          resumeUpload: '继续上传',
+          retry: '重试',
+          retryUpload: '重试上传',
+          save: '保存',
+          saveChanges: '保存更改',
+          selectFileNamed: '选择文件 %{name}',
+          selectX: {
+            0: '选择 %{smart_count}',
+            1: '选择 %{smart_count}',
+          },
+          smile: '笑一个！',
+          startRecording: '开始录制视频',
+          stopRecording: '停止录制视频',
+          takePicture: '拍照',
+          timedOut: '上传已停滞 %{seconds} 秒，正在中止。',
+          upload: '上传',
+          uploadComplete: '上传完成',
+          uploadFailed: '上传失败',
+          uploadPaused: '上传已暂停',
+          uploadXFiles: {
+            0: '上传 %{smart_count} 个文件',
+            1: '上传 %{smart_count} 个文件',
+          },
+          uploadXNewFiles: {
+            0: '上传 +%{smart_count} 个文件',
+            1: '上传 +%{smart_count} 个文件',
+          },
+          uploading: '正在上传',
+          uploadingXFiles: {
+            0: '正在上传 %{smart_count} 个文件',
+            1: '正在上传 %{smart_count} 个文件',
+          },
+          xFilesSelected: {
+            0: '已选择 %{smart_count} 个文件',
+            1: '已选择 %{smart_count} 个文件',
+          },
+          xMoreFilesAdded: {
+            0: '又添加了 %{smart_count} 个文件',
+            1: '又添加了 %{smart_count} 个文件',
+          },
+          xTimeLeft: '剩余 %{time}',
+          youCanOnlyUploadFileTypes: '您只能上传：%{types}',
+          youCanOnlyUploadX: {
+            0: '您只能上传 %{smart_count} 个文件',
+            1: '您只能上传 %{smart_count} 个文件',
+          },
+          youHaveToAtLeastSelectX: {
+            0: '您至少需要选择 %{smart_count} 个文件',
+            1: '您至少需要选择 %{smart_count} 个文件',
+          },
+          browseFiles: '浏览文件',
+          browseFolders: '浏览文件夹',
+          cancelUpload: '取消上传',
+          addMore: '添加更多',
+          back: '返回',
+          editFileWithFilename: '编辑文件 %{file}',
+        },
+      },
+    })
+    
+    uppyInstance.use(XHRUpload, {
+      endpoint: getEmojiUploadUrl(),
+      fieldName: 'file',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      formData: true,
+      // 允许发送元数据字段
+      allowedMetaFields: ['description', 'emotion', 'is_registered'],
+    })
+    
+    return uppyInstance
+  }, [])
+
+  // 在上传前添加表单数据
+  useEffect(() => {
+    const handleBeforeUpload = () => {
+      uppy.getFiles().forEach((file) => {
+        uppy.setFileMeta(file.id, {
+          description: description,
+          emotion: emotion,
+          is_registered: isRegistered.toString(),
+        })
+      })
+    }
+
+    uppy.on('upload', handleBeforeUpload)
+    return () => {
+      uppy.off('upload', handleBeforeUpload)
+    }
+  }, [uppy, description, emotion, isRegistered])
+
+  // 处理上传完成
+  useEffect(() => {
+    const handleComplete = (result: { successful?: unknown[]; failed?: unknown[] }) => {
+      const successCount = result.successful?.length || 0
+      const failedCount = result.failed?.length || 0
+      
+      if (failedCount === 0 && successCount > 0) {
+        toast({
+          title: '上传成功',
+          description: `成功上传 ${successCount} 个表情包`,
+        })
+        // 清空上传队列
+        uppy.cancelAll()
+        // 重置表单
+        setEmotion('')
+        setDescription('')
+        // 关闭对话框
+        onOpenChange(false)
+        // 刷新列表
+        onSuccess()
+      } else if (failedCount > 0) {
+        toast({
+          title: '部分上传失败',
+          description: `成功 ${successCount} 个，失败 ${failedCount} 个`,
+          variant: 'destructive',
+        })
+        onSuccess()
+      }
+    }
+
+    const handleUploadError = (_file: unknown, error: Error) => {
+      toast({
+        title: '上传失败',
+        description: error.message || '未知错误',
+        variant: 'destructive',
+      })
+    }
+
+    uppy.on('complete', handleComplete)
+    uppy.on('upload-error', handleUploadError)
+    
+    return () => {
+      uppy.off('complete', handleComplete)
+      uppy.off('upload-error', handleUploadError)
+    }
+  }, [uppy, toast, onOpenChange, onSuccess])
+
+  // 对话框关闭时清空上传队列
+  useEffect(() => {
+    if (!open) {
+      uppy.cancelAll()
+    }
+  }, [open, uppy])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5" />
+            上传表情包
+          </DialogTitle>
+          <DialogDescription>
+            支持 JPG、PNG、GIF、WebP 格式，单个文件最大 10MB，可同时上传多个文件
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 overflow-y-auto pr-1">
+          {/* 表情包信息表单 */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="upload-emotion">情感标签</Label>
+              <Input
+                id="upload-emotion"
+                value={emotion}
+                onChange={(e) => setEmotion(e.target.value)}
+                placeholder="多个标签用逗号分隔，如：开心,高兴"
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                用于情感匹配，多个标签用逗号分隔
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="upload-description">描述</Label>
+              <Input
+                id="upload-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="输入表情包描述..."
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="upload-is-registered"
+              checked={isRegistered}
+              onCheckedChange={(checked) => setIsRegistered(checked === true)}
+            />
+            <Label htmlFor="upload-is-registered" className="cursor-pointer">
+              上传后立即注册（可被麦麦使用）
+            </Label>
+          </div>
+
+          {/* Uppy Dashboard */}
+          <div className="border rounded-lg overflow-hidden w-full">
+            <Dashboard
+              uppy={uppy}
+              proudlyDisplayPoweredByUppy={false}
+              hideProgressDetails={false}
+              height={300}
+              width="100%"
+              theme="auto"
+              note="支持 JPG、PNG、GIF、WebP 格式"
+            />
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

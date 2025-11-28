@@ -145,6 +145,13 @@ export function ModelConfigPage() {
   const [modelComboboxOpen, setModelComboboxOpen] = useState(false)
   const [matchedTemplate, setMatchedTemplate] = useState<ProviderTemplate | null>(null)
   
+  // 表单验证错误状态
+  const [formErrors, setFormErrors] = useState<{
+    name?: string
+    api_provider?: string
+    model_identifier?: string
+  }>({})
+  
   const { toast } = useToast()
   const navigate = useNavigate()
   const { registerTour, startTour, state: tourState, goToStep } = useTour()
@@ -518,6 +525,9 @@ export function ModelConfigPage() {
 
   // 打开编辑对话框
   const openEditDialog = (model: ModelInfo | null, index: number | null) => {
+    // 清除表单验证错误
+    setFormErrors({})
+    
     setEditingModel(
       model || {
         model_identifier: '',
@@ -536,6 +546,26 @@ export function ModelConfigPage() {
   // 保存编辑
   const handleSaveEdit = () => {
     if (!editingModel) return
+
+    // 验证必填项
+    const errors: { name?: string; api_provider?: string; model_identifier?: string } = {}
+    if (!editingModel.name?.trim()) {
+      errors.name = '请输入模型名称'
+    }
+    if (!editingModel.api_provider?.trim()) {
+      errors.api_provider = '请选择 API 提供商'
+    }
+    if (!editingModel.model_identifier?.trim()) {
+      errors.model_identifier = '请输入模型标识符'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
+
+    // 清除错误状态
+    setFormErrors({})
 
     // 填充空值的默认值
     const modelToSave = {
@@ -1337,24 +1367,32 @@ export function ModelConfigPage() {
 
           <div className="grid gap-4 py-4">
             <div className="grid gap-2" data-tour="model-name-input">
-              <Label htmlFor="model_name">模型名称 *</Label>
+              <Label htmlFor="model_name" className={formErrors.name ? 'text-destructive' : ''}>模型名称 *</Label>
               <Input
                 id="model_name"
                 value={editingModel?.name || ''}
-                onChange={(e) =>
+                onChange={(e) => {
                   setEditingModel((prev) =>
                     prev ? { ...prev, name: e.target.value } : null
                   )
-                }
+                  if (formErrors.name) {
+                    setFormErrors((prev) => ({ ...prev, name: undefined }))
+                  }
+                }}
                 placeholder="例如: qwen3-30b"
+                className={formErrors.name ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
-              <p className="text-xs text-muted-foreground">
-                用于在任务配置中引用此模型
-              </p>
+              {formErrors.name ? (
+                <p className="text-xs text-destructive">{formErrors.name}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  用于在任务配置中引用此模型
+                </p>
+              )}
             </div>
 
             <div className="grid gap-2" data-tour="model-provider-select">
-              <Label htmlFor="api_provider">API 提供商 *</Label>
+              <Label htmlFor="api_provider" className={formErrors.api_provider ? 'text-destructive' : ''}>API 提供商 *</Label>
               <Select
                 value={editingModel?.api_provider || ''}
                 onValueChange={(value) => {
@@ -1364,9 +1402,12 @@ export function ModelConfigPage() {
                   // 清空模型列表和错误状态，等待 useEffect 重新获取
                   setAvailableModels([])
                   setModelFetchError(null)
+                  if (formErrors.api_provider) {
+                    setFormErrors((prev) => ({ ...prev, api_provider: undefined }))
+                  }
                 }}
               >
-                <SelectTrigger id="api_provider">
+                <SelectTrigger id="api_provider" className={formErrors.api_provider ? 'border-destructive focus-visible:ring-destructive' : ''}>
                   <SelectValue placeholder="选择提供商" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1377,11 +1418,14 @@ export function ModelConfigPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {formErrors.api_provider && (
+                <p className="text-xs text-destructive">{formErrors.api_provider}</p>
+              )}
             </div>
 
             <div className="grid gap-2" data-tour="model-identifier-input">
               <div className="flex items-center justify-between">
-                <Label htmlFor="model_identifier">模型标识符 *</Label>
+                <Label htmlFor="model_identifier" className={formErrors.model_identifier ? 'text-destructive' : ''}>模型标识符 *</Label>
                 {matchedTemplate?.modelFetcher && (
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="text-xs">
@@ -1500,17 +1544,26 @@ export function ModelConfigPage() {
                 <Input
                   id="model_identifier"
                   value={editingModel?.model_identifier || ''}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setEditingModel((prev) =>
                       prev ? { ...prev, model_identifier: e.target.value } : null
                     )
-                  }
+                    if (formErrors.model_identifier) {
+                      setFormErrors((prev) => ({ ...prev, model_identifier: undefined }))
+                    }
+                  }}
                   placeholder="Qwen/Qwen3-30B-A3B-Instruct-2507"
+                  className={formErrors.model_identifier ? 'border-destructive focus-visible:ring-destructive' : ''}
                 />
               )}
               
-              {/* 错误提示 */}
-              {modelFetchError && matchedTemplate?.modelFetcher && (
+              {/* 表单验证错误提示 */}
+              {formErrors.model_identifier && (
+                <p className="text-xs text-destructive">{formErrors.model_identifier}</p>
+              )}
+              
+              {/* 模型获取错误提示 */}
+              {modelFetchError && matchedTemplate?.modelFetcher && !formErrors.model_identifier && (
                 <Alert variant="destructive" className="mt-2 py-2">
                   <Info className="h-4 w-4" />
                   <AlertDescription className="text-xs">
@@ -1523,23 +1576,28 @@ export function ModelConfigPage() {
               {matchedTemplate?.modelFetcher && (
                 <Input
                   value={editingModel?.model_identifier || ''}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setEditingModel((prev) =>
                       prev ? { ...prev, model_identifier: e.target.value } : null
                     )
-                  }
+                    if (formErrors.model_identifier) {
+                      setFormErrors((prev) => ({ ...prev, model_identifier: undefined }))
+                    }
+                  }}
                   placeholder="或手动输入模型标识符"
-                  className="mt-2"
+                  className={`mt-2 ${formErrors.model_identifier ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                 />
               )}
               
-              <p className="text-xs text-muted-foreground">
-                {modelFetchError 
-                  ? '请手动输入模型标识符，或前往"模型提供商配置"检查 API Key'
-                  : matchedTemplate?.modelFetcher 
-                    ? `已识别为 ${matchedTemplate.display_name}，支持自动获取模型列表` 
-                    : 'API 提供商提供的模型 ID'}
-              </p>
+              {!formErrors.model_identifier && (
+                <p className="text-xs text-muted-foreground">
+                  {modelFetchError 
+                    ? '请手动输入模型标识符，或前往"模型提供商配置"检查 API Key'
+                    : matchedTemplate?.modelFetcher 
+                      ? `已识别为 ${matchedTemplate.display_name}，支持自动获取模型列表` 
+                      : 'API 提供商提供的模型 ID'}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

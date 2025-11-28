@@ -99,6 +99,13 @@ export function ModelProviderConfigPage() {
   const [pageSize, setPageSize] = useState(20)
   const [jumpToPage, setJumpToPage] = useState('')
   
+  // 表单验证错误状态
+  const [formErrors, setFormErrors] = useState<{
+    name?: string
+    base_url?: string
+    api_key?: string
+  }>({})
+  
   // 测试连接状态
   const [testingProviders, setTestingProviders] = useState<Set<string>>(new Set())
   const [testResults, setTestResults] = useState<Map<string, TestConnectionResult>>(new Map())
@@ -126,8 +133,8 @@ export function ModelProviderConfigPage() {
     }
   }, [tourState.stepIndex, tourState.activeTourId, tourState.isRunning, navigate])
 
-  // 监听 Tour 步骤变化，当从弹窗内步骤回退到弹窗外步骤时，自动关闭弹窗
-  // 提供商弹窗步骤: 3-9 (index 3-9)，弹窗外步骤: 0-2 (index 0-2)
+  // 监听 Tour 步骤变化，处理弹窗的打开和关闭
+  // 提供商弹窗步骤: 3-9 (index 3-9)，弹窗外步骤: 0-2 (index 0-2) 和 10+ (index 10+)
   const prevTourStepRef = useRef(tourState.stepIndex)
   useEffect(() => {
     if (tourState.activeTourId === MODEL_ASSIGNMENT_TOUR_ID && tourState.isRunning) {
@@ -137,6 +144,26 @@ export function ModelProviderConfigPage() {
       // 如果从弹窗内步骤 (3-9) 回退到弹窗外步骤 (0-2)，关闭弹窗
       if (prevStep >= 3 && prevStep <= 9 && currentStep < 3) {
         setEditDialogOpen(false)
+      }
+      
+      // 如果从弹窗外步骤 (10+) 回退到弹窗内步骤 (3-9)，重新打开弹窗
+      // 这处理了从模型管理页面第 11 步点击"上一步"回到提供商弹窗的情况
+      if (prevStep >= 10 && currentStep >= 3 && currentStep <= 9) {
+        // 需要打开空白弹窗以便 Tour 可以定位到弹窗内的元素
+        setFormErrors({})
+        setSelectedTemplate('custom')
+        setEditingProvider({
+          name: '',
+          base_url: '',
+          api_key: '',
+          client_type: 'openai',
+          max_retry: 2,
+          timeout: 30,
+          retry_interval: 10,
+        })
+        setEditingIndex(null)
+        setShowApiKey(false)
+        setEditDialogOpen(true)
       }
       
       prevTourStepRef.current = currentStep
@@ -324,6 +351,9 @@ export function ModelProviderConfigPage() {
 
   // 打开编辑对话框
   const openEditDialog = (provider: APIProvider | null, index: number | null) => {
+    // 清除表单验证错误
+    setFormErrors({})
+    
     if (provider) {
       // 编辑现有提供商 - 检测匹配的模板
       const matchedTemplate = PROVIDER_TEMPLATES.find(
@@ -399,6 +429,26 @@ export function ModelProviderConfigPage() {
   // 保存编辑
   const handleSaveEdit = () => {
     if (!editingProvider) return
+
+    // 验证必填项
+    const errors: { name?: string; base_url?: string; api_key?: string } = {}
+    if (!editingProvider.name?.trim()) {
+      errors.name = '请输入提供商名称'
+    }
+    if (!editingProvider.base_url?.trim()) {
+      errors.base_url = '请输入基础 URL'
+    }
+    if (!editingProvider.api_key?.trim()) {
+      errors.api_key = '请输入 API Key'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
+
+    // 清除错误状态
+    setFormErrors({})
 
     // 填充空值的默认值
     const providerToSave = {
@@ -1184,34 +1234,47 @@ export function ModelProviderConfigPage() {
             </div>
 
             <div className="grid gap-2" data-tour="provider-name-input">
-              <Label htmlFor="name">名称 *</Label>
+              <Label htmlFor="name" className={formErrors.name ? 'text-destructive' : ''}>名称 *</Label>
               <Input
                 id="name"
                 value={editingProvider?.name || ''}
-                onChange={(e) =>
+                onChange={(e) => {
                   setEditingProvider((prev) =>
                     prev ? { ...prev, name: e.target.value } : null
                   )
-                }
+                  if (formErrors.name) {
+                    setFormErrors((prev) => ({ ...prev, name: undefined }))
+                  }
+                }}
                 placeholder="例如: DeepSeek, SiliconFlow"
+                className={formErrors.name ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
+              {formErrors.name && (
+                <p className="text-xs text-destructive">{formErrors.name}</p>
+              )}
             </div>
 
             <div className="grid gap-2" data-tour="provider-url-input">
-              <Label htmlFor="base_url">基础 URL *</Label>
+              <Label htmlFor="base_url" className={formErrors.base_url ? 'text-destructive' : ''}>基础 URL *</Label>
               <Input
                 id="base_url"
                 value={editingProvider?.base_url || ''}
-                onChange={(e) =>
+                onChange={(e) => {
                   setEditingProvider((prev) =>
                     prev ? { ...prev, base_url: e.target.value } : null
                   )
-                }
+                  if (formErrors.base_url) {
+                    setFormErrors((prev) => ({ ...prev, base_url: undefined }))
+                  }
+                }}
                 placeholder="https://api.example.com/v1"
                 disabled={isUsingTemplate}
-                className={isUsingTemplate ? 'bg-muted cursor-not-allowed' : ''}
+                className={`${isUsingTemplate ? 'bg-muted cursor-not-allowed' : ''} ${formErrors.base_url ? 'border-destructive focus-visible:ring-destructive' : ''}`}
               />
-              {isUsingTemplate && (
+              {formErrors.base_url && (
+                <p className="text-xs text-destructive">{formErrors.base_url}</p>
+              )}
+              {isUsingTemplate && !formErrors.base_url && (
                 <p className="text-xs text-muted-foreground">
                   使用模板时 URL 不可编辑,切换到"自定义"以手动配置
                 </p>
@@ -1219,19 +1282,22 @@ export function ModelProviderConfigPage() {
             </div>
 
             <div className="grid gap-2" data-tour="provider-apikey-input">
-              <Label htmlFor="api_key">API Key *</Label>
+              <Label htmlFor="api_key" className={formErrors.api_key ? 'text-destructive' : ''}>API Key *</Label>
               <div className="flex gap-2">
                 <Input
                   id="api_key"
                   type={showApiKey ? 'text' : 'password'}
                   value={editingProvider?.api_key || ''}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setEditingProvider((prev) =>
                       prev ? { ...prev, api_key: e.target.value } : null
                     )
-                  }
+                    if (formErrors.api_key) {
+                      setFormErrors((prev) => ({ ...prev, api_key: undefined }))
+                    }
+                  }}
                   placeholder="sk-..."
-                  className="flex-1"
+                  className={`flex-1 ${formErrors.api_key ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                 />
                 <Button
                   type="button"
@@ -1256,6 +1322,9 @@ export function ModelProviderConfigPage() {
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
+              {formErrors.api_key && (
+                <p className="text-xs text-destructive">{formErrors.api_key}</p>
+              )}
             </div>
 
             <div className="grid gap-2">
