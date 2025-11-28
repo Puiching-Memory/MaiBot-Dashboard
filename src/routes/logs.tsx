@@ -65,9 +65,9 @@ export function LogViewerPage() {
     }
   }, [])
 
-  // 获取所有唯一的模块名
+  // 获取所有唯一的模块名（过滤掉空字符串）
   const uniqueModules = useMemo(() => {
-    const modules = new Set(logs.map(log => log.module))
+    const modules = new Set(logs.map(log => log.module).filter(m => m && m.trim() !== ''))
     return Array.from(modules).sort()
   }, [logs])
 
