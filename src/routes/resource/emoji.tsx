@@ -12,10 +12,13 @@ import {
   CheckCircle2,
   Ban,
   Upload,
+  ArrowLeft,
+  Check,
+  X,
+  ImageIcon,
 } from 'lucide-react'
 import Uppy from '@uppy/core'
 import Dashboard from '@uppy/react/dashboard'
-import XHRUpload from '@uppy/xhr-upload'
 import '@uppy/core/css/style.min.css'
 import '@uppy/dashboard/css/style.min.css'
 import '@/styles/uppy-custom.css'
@@ -1118,6 +1121,20 @@ function EmojiEditDialog({
 }
 
 // 上传对话框组件
+// 上传文件的元数据类型
+interface UploadedFileInfo {
+  id: string
+  name: string
+  previewUrl: string
+  emotion: string
+  description: string
+  isRegistered: boolean
+  file: File
+}
+
+// 上传步骤类型
+type UploadStep = 'select' | 'edit-single' | 'edit-multiple'
+
 function EmojiUploadDialog({
   open,
   onOpenChange,
@@ -1127,15 +1144,14 @@ function EmojiUploadDialog({
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
 }) {
-  const [emotion, setEmotion] = useState('')
-  const [description, setDescription] = useState('')
-  const [isRegistered, setIsRegistered] = useState(true)
+  const [step, setStep] = useState<UploadStep>('select')
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileInfo[]>([])
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
   const { toast } = useToast()
 
-  // 创建 Uppy 实例
+  // 创建 Uppy 实例（仅用于文件选择，不自动上传）
   const uppy = useMemo(() => {
-    const token = localStorage.getItem('access-token') || ''
-    
     const uppyInstance = new Uppy({
       id: 'emoji-uploader',
       autoProceed: false,
@@ -1145,10 +1161,8 @@ function EmojiUploadDialog({
         maxNumberOfFiles: 20,
       },
       locale: {
-        // 中文不需要复数形式，统一返回 0
         pluralize: () => 0,
         strings: {
-          // 核心字符串
           addMoreFiles: '添加更多文件',
           addingMoreFiles: '正在添加更多文件',
           allowedFileTypes: '允许的文件类型：%{types}',
@@ -1159,8 +1173,8 @@ function EmojiUploadDialog({
           copyLink: '复制链接',
           copyLinkToClipboardFallback: '复制下方链接',
           copyLinkToClipboardSuccess: '链接已复制到剪贴板',
-          dashboardTitle: '文件上传',
-          dashboardWindowTitle: '文件上传窗口（按 ESC 关闭）',
+          dashboardTitle: '选择文件',
+          dashboardWindowTitle: '文件选择窗口（按 ESC 关闭）',
           done: '完成',
           dropHereOr: '拖放文件到这里或 %{browse}',
           dropHint: '将文件拖放到此处',
@@ -1223,17 +1237,17 @@ function EmojiUploadDialog({
           stopRecording: '停止录制视频',
           takePicture: '拍照',
           timedOut: '上传已停滞 %{seconds} 秒，正在中止。',
-          upload: '上传',
+          upload: '下一步',
           uploadComplete: '上传完成',
           uploadFailed: '上传失败',
           uploadPaused: '上传已暂停',
           uploadXFiles: {
-            0: '上传 %{smart_count} 个文件',
-            1: '上传 %{smart_count} 个文件',
+            0: '下一步（%{smart_count} 个文件）',
+            1: '下一步（%{smart_count} 个文件）',
           },
           uploadXNewFiles: {
-            0: '上传 +%{smart_count} 个文件',
-            1: '上传 +%{smart_count} 个文件',
+            0: '下一步（+%{smart_count} 个文件）',
+            1: '下一步（+%{smart_count} 个文件）',
           },
           uploading: '正在上传',
           uploadingXFiles: {
@@ -1268,59 +1282,136 @@ function EmojiUploadDialog({
       },
     })
     
-    uppyInstance.use(XHRUpload, {
-      endpoint: getEmojiUploadUrl(),
-      fieldName: 'file',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      formData: true,
-      // 允许发送元数据字段
-      allowedMetaFields: ['description', 'emotion', 'is_registered'],
-    })
-    
     return uppyInstance
   }, [])
 
-  // 在上传前添加表单数据
+  // 处理"下一步"按钮点击 - 进入编辑阶段
   useEffect(() => {
-    const handleBeforeUpload = () => {
-      uppy.getFiles().forEach((file) => {
-        uppy.setFileMeta(file.id, {
-          description: description,
-          emotion: emotion,
-          is_registered: isRegistered.toString(),
-        })
-      })
-    }
-
-    uppy.on('upload', handleBeforeUpload)
-    return () => {
-      uppy.off('upload', handleBeforeUpload)
-    }
-  }, [uppy, description, emotion, isRegistered])
-
-  // 处理上传完成
-  useEffect(() => {
-    const handleComplete = (result: { successful?: unknown[]; failed?: unknown[] }) => {
-      const successCount = result.successful?.length || 0
-      const failedCount = result.failed?.length || 0
+    const handleUpload = () => {
+      const files = uppy.getFiles()
+      if (files.length === 0) return
       
-      if (failedCount === 0 && successCount > 0) {
+      // 将选择的文件转换为我们的数据结构
+      const fileInfos: UploadedFileInfo[] = files.map((file) => ({
+        id: file.id,
+        name: file.name,
+        previewUrl: file.preview || URL.createObjectURL(file.data as File),
+        emotion: '',
+        description: '',
+        isRegistered: true,
+        file: file.data as File,
+      }))
+      
+      setUploadedFiles(fileInfos)
+      
+      // 根据文件数量决定进入哪个步骤
+      if (files.length === 1) {
+        setSelectedFileId(fileInfos[0].id)
+        setStep('edit-single')
+      } else {
+        setStep('edit-multiple')
+      }
+    }
+
+    uppy.on('upload', handleUpload)
+    return () => {
+      uppy.off('upload', handleUpload)
+    }
+  }, [uppy])
+
+  // 对话框关闭时重置状态
+  useEffect(() => {
+    if (!open) {
+      uppy.cancelAll()
+      setStep('select')
+      setUploadedFiles([])
+      setSelectedFileId(null)
+      setUploading(false)
+    }
+  }, [open, uppy])
+
+  // 更新单个文件的元数据
+  const updateFileInfo = useCallback((fileId: string, updates: Partial<UploadedFileInfo>) => {
+    setUploadedFiles(prev => 
+      prev.map(f => f.id === fileId ? { ...f, ...updates } : f)
+    )
+  }, [])
+
+  // 检查文件是否填写完成必填项（情感标签必填）
+  const isFileComplete = useCallback((file: UploadedFileInfo) => {
+    return file.emotion.trim().length > 0
+  }, [])
+
+  // 检查所有文件是否都填写完成
+  const allFilesComplete = useMemo(() => {
+    return uploadedFiles.length > 0 && uploadedFiles.every(isFileComplete)
+  }, [uploadedFiles, isFileComplete])
+
+  // 获取当前选中的文件
+  const selectedFile = useMemo(() => {
+    return uploadedFiles.find(f => f.id === selectedFileId) || null
+  }, [uploadedFiles, selectedFileId])
+
+  // 返回上一步
+  const handleBack = useCallback(() => {
+    if (step === 'edit-single' || step === 'edit-multiple') {
+      setStep('select')
+      setUploadedFiles([])
+      setSelectedFileId(null)
+    }
+  }, [step])
+
+  // 执行实际上传
+  const handleSubmit = useCallback(async () => {
+    if (!allFilesComplete) {
+      toast({
+        title: '请填写必填项',
+        description: '每个表情包的情感标签都是必填的',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setUploading(true)
+    const token = localStorage.getItem('access-token') || ''
+    let successCount = 0
+    let failedCount = 0
+
+    try {
+      for (const fileInfo of uploadedFiles) {
+        const formData = new FormData()
+        formData.append('file', fileInfo.file)
+        formData.append('emotion', fileInfo.emotion)
+        formData.append('description', fileInfo.description)
+        formData.append('is_registered', fileInfo.isRegistered.toString())
+
+        try {
+          const response = await fetch(getEmojiUploadUrl(), {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          })
+
+          if (response.ok) {
+            successCount++
+          } else {
+            failedCount++
+          }
+        } catch {
+          failedCount++
+        }
+      }
+
+      if (failedCount === 0) {
         toast({
           title: '上传成功',
           description: `成功上传 ${successCount} 个表情包`,
         })
-        // 清空上传队列
-        uppy.cancelAll()
-        // 重置表单
-        setEmotion('')
-        setDescription('')
-        // 关闭对话框
         onOpenChange(false)
-        // 刷新列表
         onSuccess()
-      } else if (failedCount > 0) {
+      } else {
         toast({
           title: '部分上传失败',
           description: `成功 ${successCount} 个，失败 ${failedCount} 个`,
@@ -1328,31 +1419,257 @@ function EmojiUploadDialog({
         })
         onSuccess()
       }
+    } finally {
+      setUploading(false)
     }
+  }, [allFilesComplete, uploadedFiles, toast, onOpenChange, onSuccess])
 
-    const handleUploadError = (_file: unknown, error: Error) => {
-      toast({
-        title: '上传失败',
-        description: error.message || '未知错误',
-        variant: 'destructive',
-      })
-    }
+  // 渲染文件选择步骤
+  const renderSelectStep = () => (
+    <div className="space-y-4">
+      <div className="border rounded-lg overflow-hidden w-full">
+        <Dashboard
+          uppy={uppy}
+          proudlyDisplayPoweredByUppy={false}
+          hideProgressDetails
+          height={350}
+          width="100%"
+          theme="auto"
+          note="支持 JPG、PNG、GIF、WebP 格式，最多 20 个文件"
+        />
+      </div>
+    </div>
+  )
 
-    uppy.on('complete', handleComplete)
-    uppy.on('upload-error', handleUploadError)
-    
-    return () => {
-      uppy.off('complete', handleComplete)
-      uppy.off('upload-error', handleUploadError)
-    }
-  }, [uppy, toast, onOpenChange, onSuccess])
+  // 渲染单个文件编辑步骤
+  const renderEditSingleStep = () => {
+    const file = uploadedFiles[0]
+    if (!file) return null
 
-  // 对话框关闭时清空上传队列
-  useEffect(() => {
-    if (!open) {
-      uppy.cancelAll()
-    }
-  }, [open, uppy])
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            返回
+          </Button>
+          <span className="text-sm text-muted-foreground">编辑表情包信息</span>
+        </div>
+
+        <div className="flex gap-6">
+          {/* 预览图 */}
+          <div className="flex-shrink-0">
+            <div className="w-32 h-32 rounded-lg border overflow-hidden bg-muted flex items-center justify-center">
+              <img
+                src={file.previewUrl}
+                alt={file.name}
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-2 text-center truncate max-w-32">
+              {file.name}
+            </p>
+          </div>
+
+          {/* 表单 */}
+          <div className="flex-1 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="single-emotion">
+                情感标签 <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="single-emotion"
+                value={file.emotion}
+                onChange={(e) => updateFileInfo(file.id, { emotion: e.target.value })}
+                placeholder="多个标签用逗号分隔，如：开心,高兴"
+                className={!file.emotion.trim() ? 'border-destructive' : ''}
+              />
+              <p className="text-xs text-muted-foreground">
+                用于情感匹配，多个标签用逗号分隔
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="single-description">描述</Label>
+              <Input
+                id="single-description"
+                value={file.description}
+                onChange={(e) => updateFileInfo(file.id, { description: e.target.value })}
+                placeholder="输入表情包描述..."
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="single-is-registered"
+                checked={file.isRegistered}
+                onCheckedChange={(checked) => updateFileInfo(file.id, { isRegistered: checked === true })}
+              />
+              <Label htmlFor="single-is-registered" className="cursor-pointer">
+                上传后立即注册（可被麦麦使用）
+              </Label>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            onClick={handleSubmit}
+            disabled={!allFilesComplete || uploading}
+          >
+            {uploading ? '上传中...' : '上传'}
+          </Button>
+        </DialogFooter>
+      </div>
+    )
+  }
+
+  // 渲染多个文件编辑步骤
+  const renderEditMultipleStep = () => {
+    const completedCount = uploadedFiles.filter(isFileComplete).length
+    const totalCount = uploadedFiles.length
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={handleBack}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              返回
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              编辑表情包信息（{completedCount}/{totalCount} 已完成）
+            </span>
+          </div>
+          <Badge variant={allFilesComplete ? 'default' : 'secondary'}>
+            {allFilesComplete ? (
+              <><Check className="h-3 w-3 mr-1" />全部完成</>
+            ) : (
+              <><X className="h-3 w-3 mr-1" />未完成</>
+            )}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {/* 左侧：文件卡片列表 */}
+          <ScrollArea className="h-[350px] pr-2">
+            <div className="space-y-2">
+              {uploadedFiles.map((file) => {
+                const complete = isFileComplete(file)
+                const isSelected = selectedFileId === file.id
+                return (
+                  <div
+                    key={file.id}
+                    onClick={() => setSelectedFileId(file.id)}
+                    className={`
+                      flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all
+                      ${isSelected ? 'ring-2 ring-primary' : ''}
+                      ${complete ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'border-border hover:border-muted-foreground/50'}
+                    `}
+                  >
+                    <div className="w-12 h-12 rounded border overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
+                      <img
+                        src={file.previewUrl}
+                        alt={file.name}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{file.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {file.emotion || '未填写情感标签'}
+                      </p>
+                    </div>
+                    {complete ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <div className="h-5 w-5 rounded-full border-2 border-muted-foreground/30 flex-shrink-0" />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </ScrollArea>
+
+          {/* 右侧：选中文件的编辑表单 */}
+          <div className="border rounded-lg p-4">
+            {selectedFile ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded border overflow-hidden bg-muted flex items-center justify-center">
+                    <img
+                      src={selectedFile.previewUrl}
+                      alt={selectedFile.name}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{selectedFile.name}</p>
+                    {isFileComplete(selectedFile) && (
+                      <Badge variant="outline" className="text-green-600 border-green-600">
+                        <Check className="h-3 w-3 mr-1" />
+                        已完成
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="multi-emotion">
+                    情感标签 <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="multi-emotion"
+                    value={selectedFile.emotion}
+                    onChange={(e) => updateFileInfo(selectedFile.id, { emotion: e.target.value })}
+                    placeholder="多个标签用逗号分隔，如：开心,高兴"
+                    className={!selectedFile.emotion.trim() ? 'border-destructive' : ''}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="multi-description">描述</Label>
+                  <Input
+                    id="multi-description"
+                    value={selectedFile.description}
+                    onChange={(e) => updateFileInfo(selectedFile.id, { description: e.target.value })}
+                    placeholder="输入表情包描述..."
+                  />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="multi-is-registered"
+                    checked={selectedFile.isRegistered}
+                    onCheckedChange={(checked) => updateFileInfo(selectedFile.id, { isRegistered: checked === true })}
+                  />
+                  <Label htmlFor="multi-is-registered" className="cursor-pointer text-sm">
+                    上传后立即注册
+                  </Label>
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>点击左侧卡片编辑</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            onClick={handleSubmit}
+            disabled={!allFilesComplete || uploading}
+          >
+            {uploading ? '上传中...' : `上传全部 (${totalCount})`}
+          </Button>
+        </DialogFooter>
+      </div>
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1360,64 +1677,21 @@ function EmojiUploadDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            上传表情包
+            {step === 'select' && '上传表情包 - 选择文件'}
+            {step === 'edit-single' && '上传表情包 - 填写信息'}
+            {step === 'edit-multiple' && '上传表情包 - 批量编辑'}
           </DialogTitle>
           <DialogDescription>
-            支持 JPG、PNG、GIF、WebP 格式，单个文件最大 10MB，可同时上传多个文件
+            {step === 'select' && '支持 JPG、PNG、GIF、WebP 格式，单个文件最大 10MB，可同时上传多个文件'}
+            {step === 'edit-single' && '请填写表情包的情感标签（必填）和描述'}
+            {step === 'edit-multiple' && '点击左侧卡片编辑每个表情包的信息，情感标签为必填项'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 overflow-y-auto pr-1">
-          {/* 表情包信息表单 */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="upload-emotion">情感标签</Label>
-              <Input
-                id="upload-emotion"
-                value={emotion}
-                onChange={(e) => setEmotion(e.target.value)}
-                placeholder="多个标签用逗号分隔，如：开心,高兴"
-                className="w-full"
-              />
-              <p className="text-xs text-muted-foreground">
-                用于情感匹配，多个标签用逗号分隔
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="upload-description">描述</Label>
-              <Input
-                id="upload-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="输入表情包描述..."
-                className="w-full"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="upload-is-registered"
-              checked={isRegistered}
-              onCheckedChange={(checked) => setIsRegistered(checked === true)}
-            />
-            <Label htmlFor="upload-is-registered" className="cursor-pointer">
-              上传后立即注册（可被麦麦使用）
-            </Label>
-          </div>
-
-          {/* Uppy Dashboard */}
-          <div className="border rounded-lg overflow-hidden w-full">
-            <Dashboard
-              uppy={uppy}
-              proudlyDisplayPoweredByUppy={false}
-              hideProgressDetails={false}
-              height={300}
-              width="100%"
-              theme="auto"
-              note="支持 JPG、PNG、GIF、WebP 格式"
-            />
-          </div>
+        <div className="overflow-y-auto pr-1">
+          {step === 'select' && renderSelectStep()}
+          {step === 'edit-single' && renderEditSingleStep()}
+          {step === 'edit-multiple' && renderEditMultipleStep()}
         </div>
       </DialogContent>
     </Dialog>
