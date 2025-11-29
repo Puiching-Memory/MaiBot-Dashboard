@@ -271,7 +271,27 @@ export function IndexPage() {
     )
   }
 
-  const { summary, model_stats, hourly_data, daily_data, recent_activity } = dashboardData
+  // 解构数据，提供默认值以防止 undefined 错误
+  const { 
+    summary: rawSummary, 
+    model_stats = [], 
+    hourly_data = [], 
+    daily_data = [], 
+    recent_activity = [] 
+  } = dashboardData
+
+  // 为 summary 提供默认值
+  const summary = rawSummary ?? {
+    total_requests: 0,
+    total_cost: 0,
+    total_tokens: 0,
+    online_time: 0,
+    total_messages: 0,
+    total_replies: 0,
+    avg_response_time: 0,
+    cost_per_hour: 0,
+    tokens_per_hour: 0,
+  }
 
   // 格式化时间显示
   const formatTime = (seconds: number) => {
