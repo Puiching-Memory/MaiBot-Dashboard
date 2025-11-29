@@ -3,6 +3,8 @@
  * 确保整个应用只有一个 WebSocket 连接
  */
 
+import { getSetting } from './settings-manager'
+
 export interface LogEntry {
   id: string
   timestamp: string
@@ -18,7 +20,6 @@ class LogWebSocketManager {
   private ws: WebSocket | null = null
   private reconnectTimeout: number | null = null
   private reconnectAttempts = 0
-  private maxReconnectAttempts = 10
   private heartbeatInterval: number | null = null
   
   // 订阅者
@@ -29,7 +30,27 @@ class LogWebSocketManager {
   
   // 日志缓存 - 保存所有接收到的日志
   private logCache: LogEntry[] = []
-  private readonly maxCacheSize = 1000 // 最多缓存 1000 条日志
+
+  /**
+   * 获取最大缓存大小（从设置读取）
+   */
+  private getMaxCacheSize(): number {
+    return getSetting('logCacheSize')
+  }
+
+  /**
+   * 获取最大重连次数（从设置读取）
+   */
+  private getMaxReconnectAttempts(): number {
+    return getSetting('wsMaxReconnectAttempts')
+  }
+
+  /**
+   * 获取重连间隔（从设置读取）
+   */
+  private getReconnectInterval(): number {
+    return getSetting('wsReconnectInterval')
+  }
 
   /**
    * 获取 WebSocket URL
@@ -102,12 +123,14 @@ class LogWebSocketManager {
    * 尝试重连
    */
   private attemptReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+    const maxAttempts = this.getMaxReconnectAttempts()
+    if (this.reconnectAttempts >= maxAttempts) {
       return
     }
 
     this.reconnectAttempts += 1
-    const delay = Math.min(1000 * this.reconnectAttempts, 10000)
+    const baseInterval = this.getReconnectInterval()
+    const delay = Math.min(baseInterval * this.reconnectAttempts, 30000)
 
     this.reconnectTimeout = window.setTimeout(() => {
       this.connect()
@@ -184,9 +207,10 @@ class LogWebSocketManager {
       // 添加到缓存
       this.logCache.push(log)
       
-      // 限制缓存大小
-      if (this.logCache.length > this.maxCacheSize) {
-        this.logCache = this.logCache.slice(-this.maxCacheSize)
+      // 限制缓存大小（动态读取配置）
+      const maxCacheSize = this.getMaxCacheSize()
+      if (this.logCache.length > maxCacheSize) {
+        this.logCache = this.logCache.slice(-maxCacheSize)
       }
       
       // 只有新日志才通知订阅者
