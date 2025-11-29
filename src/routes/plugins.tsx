@@ -914,7 +914,9 @@ export function PluginsPage() {
         {/* 插件详情对话框 */}
         <Dialog open={selectedPlugin !== null} onOpenChange={closeDialog}>
           {selectedPlugin && selectedPlugin.manifest && (
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[80vh] p-0 flex flex-col">
+              <ScrollArea className="flex-1 overflow-auto">
+                <div className="p-6">
               <DialogHeader>
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2 flex-1">
@@ -1069,6 +1071,8 @@ export function PluginsPage() {
                   </Button>
                 )}
               </DialogFooter>
+                </div>
+              </ScrollArea>
             </DialogContent>
           )}
         </Dialog>
