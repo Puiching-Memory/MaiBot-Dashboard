@@ -85,6 +85,9 @@ interface ChatConfig {
 interface ExpressionConfig {
   learning_list: Array<[string, string, string, string]>
   expression_groups: Array<string[]>
+  reflect: boolean
+  reflect_operator_id: string
+  allow_reflect: string[]
 }
 
 interface EmojiConfig {
@@ -2322,6 +2325,212 @@ function ExpressionSection({
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* 表达反思配置 */}
+      <div className="rounded-lg border bg-card p-6 space-y-6">
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">表达反思配置</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                配置麦麦主动向管理员询问表达方式是否合适的功能
+              </p>
+            </div>
+            <Switch
+              checked={config.reflect}
+              onCheckedChange={(checked) =>
+                onChange({ ...config, reflect: checked })
+              }
+            />
+          </div>
+
+          {config.reflect && (
+            <div className="space-y-4">
+              {/* 表达反思操作员 ID */}
+              <div className="rounded-lg border p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">反思操作员</span>
+                </div>
+                
+                <div className="space-y-4">
+                  {(() => {
+                    const operatorId = config.reflect_operator_id || ''
+                    const parts = operatorId.split(':')
+                    const platform = parts[0] || 'qq'
+                    const chatId = parts[1] || ''
+                    const chatType = parts[2] || 'private'
+                    
+                    return (
+                      <div className="grid gap-4 p-4 rounded-lg bg-muted/50">
+                        <div className="grid grid-cols-3 gap-3">
+                          {/* 平台选择 */}
+                          <div className="grid gap-2">
+                            <Label className="text-xs font-medium">平台</Label>
+                            <Select
+                              value={platform}
+                              onValueChange={(value) => {
+                                onChange({ ...config, reflect_operator_id: `${value}:${chatId}:${chatType}` })
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="qq">QQ</SelectItem>
+                                <SelectItem value="wx">微信</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* ID 输入 */}
+                          <div className="grid gap-2">
+                            <Label className="text-xs font-medium">用户/群 ID</Label>
+                            <Input
+                              value={chatId}
+                              onChange={(e) => {
+                                onChange({ ...config, reflect_operator_id: `${platform}:${e.target.value}:${chatType}` })
+                              }}
+                              placeholder="输入 ID"
+                              className="font-mono text-sm"
+                            />
+                          </div>
+
+                          {/* 类型选择 */}
+                          <div className="grid gap-2">
+                            <Label className="text-xs font-medium">类型</Label>
+                            <Select
+                              value={chatType}
+                              onValueChange={(value) => {
+                                onChange({ ...config, reflect_operator_id: `${platform}:${chatId}:${value}` })
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="private">私聊（private）</SelectItem>
+                                <SelectItem value="group">群组（group）</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          当前操作员 ID：{config.reflect_operator_id || '（未设置）'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          麦麦会向此操作员询问表达方式是否合适
+                        </p>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+
+              {/* 允许反思的聊天流列表 */}
+              <div className="rounded-lg border p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium">允许反思的聊天流</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      只有在此列表中的聊天流才会提出问题并跟踪。如果列表为空，则所有聊天流都可以进行表达反思
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      onChange({
+                        ...config,
+                        allow_reflect: [...(config.allow_reflect || []), 'qq::group'],
+                      })
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    添加聊天流
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  {(config.allow_reflect || []).map((chatId, index) => {
+                    const parts = chatId.split(':')
+                    const platform = parts[0] || 'qq'
+                    const id = parts[1] || ''
+                    const chatType = parts[2] || 'group'
+                    
+                    return (
+                      <div key={index} className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                        <Select
+                          value={platform}
+                          onValueChange={(value) => {
+                            const newList = [...config.allow_reflect]
+                            newList[index] = `${value}:${id}:${chatType}`
+                            onChange({ ...config, allow_reflect: newList })
+                          }}
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="qq">QQ</SelectItem>
+                            <SelectItem value="wx">微信</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        <Input
+                          value={id}
+                          onChange={(e) => {
+                            const newList = [...config.allow_reflect]
+                            newList[index] = `${platform}:${e.target.value}:${chatType}`
+                            onChange({ ...config, allow_reflect: newList })
+                          }}
+                          placeholder="ID"
+                          className="flex-1 font-mono text-sm"
+                        />
+                        
+                        <Select
+                          value={chatType}
+                          onValueChange={(value) => {
+                            const newList = [...config.allow_reflect]
+                            newList[index] = `${platform}:${id}:${value}`
+                            onChange({ ...config, allow_reflect: newList })
+                          }}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="group">群组</SelectItem>
+                            <SelectItem value="private">私聊</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        <Button
+                          onClick={() => {
+                            onChange({
+                              ...config,
+                              allow_reflect: config.allow_reflect.filter((_, i) => i !== index),
+                            })
+                          }}
+                          size="sm"
+                          variant="ghost"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )
+                  })}
+
+                  {(!config.allow_reflect || config.allow_reflect.length === 0) && (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      列表为空，所有聊天流都可以进行表达反思
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
