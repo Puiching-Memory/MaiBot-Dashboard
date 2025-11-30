@@ -26,10 +26,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -40,7 +38,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Save, Plus, Trash2, Eye, Clock, FileSearch, Power, Code2, Layout, HelpCircle } from 'lucide-react'
+import { Save, Plus, Trash2, Eye, Clock, FileSearch, Power, Code2, Layout } from 'lucide-react'
 import { getBotConfig, updateBotConfig, updateBotConfigSection, getBotConfigRaw, updateBotConfigRaw } from '@/lib/config-api'
 import { restartMaiBot } from '@/lib/system-api'
 import { useToast } from '@/hooks/use-toast'
@@ -723,7 +721,7 @@ export function BotConfigPage() {
                 <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>确认重启麦麦？</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-3" asChild>
+                  <AlertDialogDescription asChild>
                     <div>
                       <p>
                         {hasUnsavedChanges 
@@ -731,106 +729,6 @@ export function BotConfigPage() {
                           : '即将重启麦麦主程序。重启过程中麦麦将暂时离线,配置将在重启后生效。'
                         }
                       </p>
-                      <Alert className="border-yellow-500/50 bg-yellow-500/10">
-                        <Info className="h-4 w-4 text-yellow-600" />
-                        <AlertDescription className="text-yellow-900 dark:text-yellow-100">
-                          <strong>重要提示:</strong>由于技术原因,使用重启功能后,将无法再使用 <code className="px-1 py-0.5 bg-yellow-200 dark:bg-yellow-900 rounded">Ctrl+C</code> 结束程序。
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <button className="ml-1 text-yellow-700 dark:text-yellow-300 underline hover:text-yellow-800 dark:hover:text-yellow-200 inline-flex items-center gap-1">
-                                <HelpCircle className="h-3 w-3" />
-                                如何结束程序？
-                              </button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
-                              <DialogHeader>
-                                <DialogTitle>如何结束使用重启功能后的麦麦程序</DialogTitle>
-                                <DialogDescription>
-                                  由于重启功能会使程序脱离终端控制，需要通过系统命令来结束进程
-                                </DialogDescription>
-                              </DialogHeader>
-                              <Tabs defaultValue="windows" className="w-full">
-                                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
-                                  <TabsTrigger value="windows">Windows</TabsTrigger>
-                                  <TabsTrigger value="macos">macOS</TabsTrigger>
-                                  <TabsTrigger value="linux">Linux</TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="windows" className="space-y-4 mt-4">
-                                  <div className="space-y-2">
-                                    <h4 className="font-semibold">方法一：使用任务管理器</h4>
-                                    <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
-                                      <li>按 <code className="px-1 py-0.5 bg-muted rounded">Ctrl + Shift + Esc</code> 打开任务管理器</li>
-                                      <li>在"进程"或"详细信息"标签页中找到 <code className="px-1 py-0.5 bg-muted rounded">python.exe</code></li>
-                                      <li>右键点击并选择"结束任务"</li>
-                                    </ol>
-                                  </div>
-                                  <div className="space-y-2">
-                                    <h4 className="font-semibold">方法二：使用命令行</h4>
-                                    <p className="text-sm text-muted-foreground">打开 PowerShell 或命令提示符，执行以下命令：</p>
-                                    <div className="bg-muted p-3 rounded-md font-mono text-sm">
-                                      <p># 查找麦麦进程</p>
-                                      <p>Get-Process python | Where-Object &#123;$_.MainWindowTitle -eq ""&#125;</p>
-                                      <p className="mt-2"># 结束所有 Python 进程（谨慎使用）</p>
-                                      <p>Stop-Process -Name python -Force</p>
-                                    </div>
-                                  </div>
-                                </TabsContent>
-                                <TabsContent value="macos" className="space-y-4 mt-4">
-                                  <div className="space-y-2">
-                                    <h4 className="font-semibold">方法一：使用活动监视器</h4>
-                                    <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
-                                      <li>按 <code className="px-1 py-0.5 bg-muted rounded">Cmd + Space</code> 打开 Spotlight，搜索"活动监视器"</li>
-                                      <li>在进程列表中找到 <code className="px-1 py-0.5 bg-muted rounded">Python</code></li>
-                                      <li>选中后点击左上角的 X 按钮结束进程</li>
-                                    </ol>
-                                  </div>
-                                  <div className="space-y-2">
-                                    <h4 className="font-semibold">方法二：使用终端</h4>
-                                    <p className="text-sm text-muted-foreground">打开终端，执行以下命令：</p>
-                                    <div className="bg-muted p-3 rounded-md font-mono text-sm">
-                                      <p># 查找麦麦进程</p>
-                                      <p>ps aux | grep python | grep -v grep</p>
-                                      <p className="mt-2"># 结束指定 PID 的进程</p>
-                                      <p>kill -9 &lt;PID&gt;</p>
-                                      <p className="mt-2"># 或结束所有 Python 进程（谨慎使用）</p>
-                                      <p>pkill -9 python</p>
-                                    </div>
-                                  </div>
-                                </TabsContent>
-                                <TabsContent value="linux" className="space-y-4 mt-4">
-                                  <div className="space-y-2">
-                                    <h4 className="font-semibold">使用终端命令</h4>
-                                    <p className="text-sm text-muted-foreground">打开终端，执行以下命令：</p>
-                                    <div className="bg-muted p-3 rounded-md font-mono text-sm">
-                                      <p># 查找麦麦进程</p>
-                                      <p>ps aux | grep python | grep -v grep</p>
-                                      <p className="mt-2"># 结束指定 PID 的进程</p>
-                                      <p>kill -9 &lt;PID&gt;</p>
-                                      <p className="mt-2"># 或使用 pkill 按名称结束</p>
-                                      <p>pkill -9 -f "bot.py"</p>
-                                      <p className="mt-2"># 或结束所有 Python 进程（谨慎使用）</p>
-                                      <p>pkill -9 python</p>
-                                    </div>
-                                  </div>
-                                  <div className="space-y-2">
-                                    <h4 className="font-semibold">使用 htop（如已安装）</h4>
-                                    <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
-                                      <li>在终端输入 <code className="px-1 py-0.5 bg-muted rounded">htop</code></li>
-                                      <li>按 <code className="px-1 py-0.5 bg-muted rounded">F3</code> 搜索 python</li>
-                                      <li>按 <code className="px-1 py-0.5 bg-muted rounded">F9</code> 发送信号，选择 SIGKILL</li>
-                                    </ol>
-                                  </div>
-                                </TabsContent>
-                              </Tabs>
-                              <DialogFooter>
-                                <DialogClose asChild>
-                                  <Button variant="outline">关闭</Button>
-                                </DialogClose>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        </AlertDescription>
-                      </Alert>
                     </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>

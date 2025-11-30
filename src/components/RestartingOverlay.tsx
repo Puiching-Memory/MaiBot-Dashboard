@@ -154,13 +154,6 @@ export function RestartingOverlay({ onRestartComplete, onRestartFailed }: Restar
           </p>
         </div>
 
-        {/* 重要提示 */}
-        <div className="bg-yellow-500/10 border border-yellow-500/50 rounded-lg p-4">
-          <p className="text-sm text-yellow-900 dark:text-yellow-100">
-            <strong>⚠️ 重要提示:</strong> 由于技术原因,使用重启功能后,将无法再使用 <code className="px-1 py-0.5 bg-yellow-200 dark:bg-yellow-900 rounded">Ctrl+C</code> 结束程序。如需结束程序,请使用脚本目录下的进程管理脚本。
-          </p>
-        </div>
-
         {/* 失败时的操作按钮 */}
         {status === 'failed' && (
           <div className="flex gap-2">
