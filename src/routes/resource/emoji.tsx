@@ -75,6 +75,7 @@ import {
   registerEmoji,
   banEmoji,
   getEmojiThumbnailUrl,
+  getEmojiOriginalUrl,
   batchDeleteEmojis,
   getEmojiUploadUrl,
 } from '@/lib/emoji-api'
@@ -869,11 +870,11 @@ function EmojiDetailDialog({
         </DialogHeader>
         <ScrollArea className="max-h-[calc(90vh-8rem)] pr-4">
           <div className="space-y-4">
-          {/* 表情包预览图 */}
+          {/* 表情包预览图 - 使用原图 */}
           <div className="flex justify-center">
             <div className="w-32 h-32 bg-muted rounded-lg flex items-center justify-center overflow-hidden">
               <img
-                src={getEmojiThumbnailUrl(emoji.id)}
+                src={getEmojiOriginalUrl(emoji.id)}
                 alt={emoji.description || '表情包'}
                 className="w-full h-full object-cover"
                 onError={(e) => {

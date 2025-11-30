@@ -143,9 +143,21 @@ export async function banEmoji(id: number): Promise<EmojiUpdateResponse> {
 /**
  * 获取表情包缩略图 URL
  * 注意：使用 HttpOnly Cookie 进行认证，浏览器会自动携带
+ * @param id 表情包 ID
+ * @param original 是否获取原图（默认返回压缩后的缩略图）
  */
-export function getEmojiThumbnailUrl(id: number): string {
+export function getEmojiThumbnailUrl(id: number, original: boolean = false): string {
+  if (original) {
+    return `${API_BASE}/${id}/thumbnail?original=true`
+  }
   return `${API_BASE}/${id}/thumbnail`
+}
+
+/**
+ * 获取表情包原图 URL
+ */
+export function getEmojiOriginalUrl(id: number): string {
+  return `${API_BASE}/${id}/thumbnail?original=true`
 }
 
 /**
@@ -184,4 +196,89 @@ export function getEmojiUploadUrl(): string {
  */
 export function getEmojiBatchUploadUrl(): string {
   return `${API_BASE}/batch/upload`
+}
+
+// ==================== 缩略图缓存管理 API ====================
+
+export interface ThumbnailCacheStatsResponse {
+  success: boolean
+  cache_dir: string
+  total_count: number
+  total_size_mb: number
+  emoji_count: number
+  coverage_percent: number
+}
+
+export interface ThumbnailCleanupResponse {
+  success: boolean
+  message: string
+  cleaned_count: number
+  kept_count: number
+}
+
+export interface ThumbnailPreheatResponse {
+  success: boolean
+  message: string
+  generated_count: number
+  skipped_count: number
+  failed_count: number
+}
+
+/**
+ * 获取缩略图缓存统计信息
+ */
+export async function getThumbnailCacheStats(): Promise<ThumbnailCacheStatsResponse> {
+  const response = await fetchWithAuth(`${API_BASE}/thumbnail-cache/stats`, {})
+
+  if (!response.ok) {
+    throw new Error(`获取缩略图缓存统计失败: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * 清理孤立的缩略图缓存
+ */
+export async function cleanupThumbnailCache(): Promise<ThumbnailCleanupResponse> {
+  const response = await fetchWithAuth(`${API_BASE}/thumbnail-cache/cleanup`, {
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    throw new Error(`清理缩略图缓存失败: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * 预热缩略图缓存
+ * @param limit 最多预热数量 (1-1000)
+ */
+export async function preheatThumbnailCache(limit: number = 100): Promise<ThumbnailPreheatResponse> {
+  const response = await fetchWithAuth(`${API_BASE}/thumbnail-cache/preheat?limit=${limit}`, {
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    throw new Error(`预热缩略图缓存失败: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * 清空所有缩略图缓存
+ */
+export async function clearAllThumbnailCache(): Promise<ThumbnailCleanupResponse> {
+  const response = await fetchWithAuth(`${API_BASE}/thumbnail-cache/clear`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    throw new Error(`清空缩略图缓存失败: ${response.statusText}`)
+  }
+
+  return response.json()
 }
