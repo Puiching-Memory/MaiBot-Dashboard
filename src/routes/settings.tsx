@@ -469,12 +469,6 @@ function SecurityTab() {
   // 实时验证新 Token
   const tokenValidation = useMemo(() => validateToken(newToken), [newToken])
 
-  // 注意：当前 Token 现在存储在 HttpOnly Cookie 中，前端无法直接获取
-  // 此函数仅用于显示已获取的 Token
-  const getCurrentToken = () => {
-    return currentToken || '（Token 存储在安全 Cookie 中，无法直接查看）'
-  }
-
   // 复制 token 到剪贴板
   const copyToClipboard = async (text: string) => {
     if (!currentToken) {
