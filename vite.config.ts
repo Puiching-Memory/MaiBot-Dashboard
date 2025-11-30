@@ -12,6 +12,9 @@ export default defineConfig({
         target: 'http://127.0.0.1:8001',  // WebUI 后端服务器
         changeOrigin: true,
         ws: true,
+        // 确保 Cookie 正确转发
+        cookieDomainRewrite: '',  // 移除域名限制
+        cookiePathRewrite: '/',   // 确保路径一致
       },
     },
   },

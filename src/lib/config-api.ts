@@ -2,7 +2,7 @@
  * 配置API客户端
  */
 
-import { fetchWithAuth, getAuthHeaders } from '@/lib/fetch-with-auth'
+import { fetchWithAuth } from '@/lib/fetch-with-auth'
 import type {
   ConfigSchema,
   ConfigSchemaResponse,
@@ -88,7 +88,6 @@ export async function getModelConfig(): Promise<Record<string, unknown>> {
 export async function updateBotConfig(config: Record<string, unknown>): Promise<void> {
   const response = await fetchWithAuth(`${API_BASE}/bot`, {
     method: 'POST',
-    headers: getAuthHeaders(),
     body: JSON.stringify(config),
   })
   
@@ -119,7 +118,6 @@ export async function getBotConfigRaw(): Promise<string> {
 export async function updateBotConfigRaw(rawContent: string): Promise<void> {
   const response = await fetchWithAuth(`${API_BASE}/bot/raw`, {
     method: 'POST',
-    headers: getAuthHeaders(),
     body: JSON.stringify({ raw_content: rawContent }),
   })
   
@@ -136,7 +134,6 @@ export async function updateBotConfigRaw(rawContent: string): Promise<void> {
 export async function updateModelConfig(config: Record<string, unknown>): Promise<void> {
   const response = await fetchWithAuth(`${API_BASE}/model`, {
     method: 'POST',
-    headers: getAuthHeaders(),
     body: JSON.stringify(config),
   })
   
@@ -156,7 +153,6 @@ export async function updateBotConfigSection(
 ): Promise<void> {
   const response = await fetchWithAuth(`${API_BASE}/bot/section/${sectionName}`, {
     method: 'POST',
-    headers: getAuthHeaders(),
     body: JSON.stringify(sectionData),
   })
   
@@ -176,7 +172,6 @@ export async function updateModelConfigSection(
 ): Promise<void> {
   const response = await fetchWithAuth(`${API_BASE}/model/section/${sectionName}`, {
     method: 'POST',
-    headers: getAuthHeaders(),
     body: JSON.stringify(sectionData),
   })
   

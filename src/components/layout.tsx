@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router'
 import { useTheme, toggleThemeWithTransition } from './use-theme'
 import { useAuthGuard } from '@/hooks/use-auth'
+import { logout } from '@/lib/fetch-with-auth'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { SearchDialog } from '@/components/search-dialog'
@@ -46,7 +47,7 @@ interface MenuSection {
 }
 
 export function Layout({ children }: LayoutProps) {
-  useAuthGuard() // 检查认证状态
+  const { checking } = useAuthGuard() // 检查认证状态
   
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -67,6 +68,15 @@ export function Layout({ children }: LayoutProps) {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  // 认证检查中，显示加载状态
+  if (checking) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-muted-foreground">正在验证登录状态...</div>
+      </div>
+    )
+  }
 
   // 菜单项配置 - 分块结构
   const menuSections: MenuSection[] = [
@@ -122,9 +132,8 @@ export function Layout({ children }: LayoutProps) {
   const actualTheme = getActualTheme()
 
   // 登出处理
-  const handleLogout = () => {
-    localStorage.removeItem('access-token')
-    navigate({ to: '/auth' })
+  const handleLogout = async () => {
+    await logout()
   }
 
   return (

@@ -27,7 +27,7 @@ import {
 import { WavesBackground } from '@/components/waves-background'
 import { useAnimation } from '@/hooks/use-animation'
 import { useTheme } from '@/components/use-theme'
-import { checkAuth } from '@/hooks/use-auth'
+import { checkAuthStatus } from '@/lib/fetch-with-auth'
 import { cn } from '@/lib/utils'
 import { APP_FULL_NAME } from '@/lib/version'
 
@@ -35,15 +35,26 @@ export function AuthPage() {
   const [token, setToken] = useState('')
   const [isValidating, setIsValidating] = useState(false)
   const [error, setError] = useState('')
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const navigate = useNavigate()
   const { enableWavesBackground, setEnableWavesBackground } = useAnimation()
   const { theme, setTheme } = useTheme()
 
   // 如果已经认证，直接跳转到首页
   useEffect(() => {
-    if (checkAuth()) {
-      navigate({ to: '/' })
+    const verifyAuth = async () => {
+      try {
+        const isAuth = await checkAuthStatus()
+        if (isAuth) {
+          navigate({ to: '/' })
+        }
+      } catch {
+        // 忽略错误，保持在登录页
+      } finally {
+        setCheckingAuth(false)
+      }
     }
+    verifyAuth()
   }, [navigate])
 
   // 获取实际应用的主题（处理 system 情况）
@@ -74,32 +85,22 @@ export function AuthPage() {
     setIsValidating(true)
 
     try {
-      // 向后端发送请求验证 token
+      // 向后端发送请求验证 token（后端会设置 HttpOnly Cookie）
       const response = await fetch('/api/webui/auth/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // 确保接收并存储 Cookie
         body: JSON.stringify({ token: token.trim() }),
       })
 
       const data = await response.json()
 
       if (response.ok && data.valid) {
-        // Token 验证成功，保存到 localStorage
-        localStorage.setItem('access-token', token.trim())
-        
-        // 检查是否需要首次配置
-        const setupResponse = await fetch('/api/webui/setup/status', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token.trim()}`,
-          },
-        })
-
-        const setupData = await setupResponse.json()
-
-        if (setupResponse.ok && setupData.is_first_setup) {
+        // Token 验证成功，Cookie 已由后端设置
+        // 直接使用验证响应中的 is_first_setup 字段，避免额外请求
+        if (data.is_first_setup) {
           // 需要首次配置，跳转到配置向导
           navigate({ to: '/setup' })
         } else {
@@ -115,6 +116,16 @@ export function AuthPage() {
     } finally {
       setIsValidating(false)
     }
+  }
+
+  // 正在检查认证状态时显示加载
+  if (checkingAuth) {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+        {enableWavesBackground && <WavesBackground />}
+        <div className="text-muted-foreground">正在检查登录状态...</div>
+      </div>
+    )
   }
 
   return (

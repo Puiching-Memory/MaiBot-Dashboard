@@ -109,7 +109,7 @@ export async function fetchPluginList(): Promise<PluginInfo[]> {
     // 通过后端 API 获取 Raw 文件
     const response = await fetchWithAuth('/api/webui/plugins/fetch-raw', {
       method: 'POST',
-      headers: getAuthHeaders(),
+      
       body: JSON.stringify({
         owner: PLUGIN_REPO_OWNER,
         repo: PLUGIN_REPO_NAME,
@@ -367,7 +367,7 @@ export function getInstalledPluginVersion(pluginId: string, installedPlugins: In
 export async function installPlugin(pluginId: string, repositoryUrl: string, branch: string = 'main'): Promise<any> {
   const response = await fetchWithAuth('/api/webui/plugins/install', {
     method: 'POST',
-    headers: getAuthHeaders(),
+    
     body: JSON.stringify({
       plugin_id: pluginId,
       repository_url: repositoryUrl,
@@ -389,7 +389,7 @@ export async function installPlugin(pluginId: string, repositoryUrl: string, bra
 export async function uninstallPlugin(pluginId: string): Promise<{ success: boolean; message: string }> {
   const response = await fetchWithAuth('/api/webui/plugins/uninstall', {
     method: 'POST',
-    headers: getAuthHeaders(),
+    
     body: JSON.stringify({
       plugin_id: pluginId
     })
@@ -409,7 +409,7 @@ export async function uninstallPlugin(pluginId: string): Promise<{ success: bool
 export async function updatePlugin(pluginId: string, repositoryUrl: string, branch: string = 'main'): Promise<{ success: boolean; message: string; old_version: string; new_version: string }> {
   const response = await fetchWithAuth('/api/webui/plugins/update', {
     method: 'POST',
-    headers: getAuthHeaders(),
+    
     body: JSON.stringify({
       plugin_id: pluginId,
       repository_url: repositoryUrl,
@@ -561,7 +561,7 @@ export async function updatePluginConfig(
 ): Promise<{ success: boolean; message: string; note?: string }> {
   const response = await fetchWithAuth(`/api/webui/plugins/config/${pluginId}`, {
     method: 'PUT',
-    headers: getAuthHeaders(),
+    
     body: JSON.stringify({ config })
   })
   

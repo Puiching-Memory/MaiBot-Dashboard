@@ -1,20 +1,47 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { checkAuthStatus } from '@/lib/fetch-with-auth'
 
 export function useAuthGuard() {
   const navigate = useNavigate()
+  const [checking, setChecking] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('access-token')
+    let cancelled = false
     
-    if (!token) {
-      navigate({ to: '/auth' })
+    const verifyAuth = async () => {
+      try {
+        const isAuth = await checkAuthStatus()
+        if (!cancelled && !isAuth) {
+          navigate({ to: '/auth' })
+        }
+      } catch {
+        // 发生错误时也跳转到登录页
+        if (!cancelled) {
+          navigate({ to: '/auth' })
+        }
+      } finally {
+        if (!cancelled) {
+          setChecking(false)
+        }
+      }
+    }
+    
+    verifyAuth()
+    
+    return () => {
+      cancelled = true
     }
   }, [navigate])
+  
+  return { checking }
 }
 
-export function checkAuth(): boolean {
-  return !!localStorage.getItem('access-token')
+/**
+ * 检查是否已认证（异步）
+ */
+export async function checkAuth(): Promise<boolean> {
+  return await checkAuthStatus()
 }
 
 /**
@@ -22,16 +49,9 @@ export function checkAuth(): boolean {
  */
 export async function checkFirstSetup(): Promise<boolean> {
   try {
-    const token = localStorage.getItem('access-token')
-    if (!token) {
-      return false
-    }
-
     const response = await fetch('/api/webui/setup/status', {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      credentials: 'include',
     })
 
     const data = await response.json()

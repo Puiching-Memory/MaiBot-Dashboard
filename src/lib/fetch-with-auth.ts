@@ -2,18 +2,26 @@
 
 /**
  * 增强的 fetch 函数，自动处理 401 错误并跳转到登录页
+ * 使用 HttpOnly Cookie 进行认证，自动携带 credentials
  */
 export async function fetchWithAuth(
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<Response> {
-  const response = await fetch(input, init)
+  // 合并默认配置，确保携带 Cookie
+  const config: RequestInit = {
+    ...init,
+    credentials: 'include', // 确保携带 Cookie
+    headers: {
+      'Content-Type': 'application/json',
+      ...init?.headers,
+    },
+  }
+  
+  const response = await fetch(input, config)
 
   // 检测 401 未授权错误
   if (response.status === 401) {
-    // 清除本地存储的 token
-    localStorage.removeItem('access-token')
-
     // 跳转到登录页
     window.location.href = '/auth'
 
@@ -25,12 +33,43 @@ export async function fetchWithAuth(
 }
 
 /**
- * 获取带认证头的请求配置
+ * 获取带认证的请求配置
+ * 现在使用 Cookie 认证，不再需要手动设置 Authorization header
  */
 export function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('access-token')
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
+  }
+}
+
+/**
+ * 调用登出接口并跳转到登录页
+ */
+export async function logout(): Promise<void> {
+  try {
+    await fetch('/api/webui/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch (error) {
+    console.error('登出请求失败:', error)
+  }
+  // 无论成功与否都跳转到登录页
+  window.location.href = '/auth'
+}
+
+/**
+ * 检查当前认证状态
+ */
+export async function checkAuthStatus(): Promise<boolean> {
+  try {
+    const response = await fetch('/api/webui/auth/check', {
+      method: 'GET',
+      credentials: 'include',
+    })
+    const data = await response.json()
+    return data.authenticated === true
+  } catch {
+    return false
   }
 }

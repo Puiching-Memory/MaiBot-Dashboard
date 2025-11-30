@@ -1,7 +1,7 @@
 /**
  * 表达方式管理 API
  */
-import { fetchWithAuth, getAuthHeaders } from '@/lib/fetch-with-auth'
+import { fetchWithAuth } from '@/lib/fetch-with-auth'
 import type {
   ExpressionListResponse,
   ExpressionDetailResponse,
@@ -21,7 +21,7 @@ const API_BASE = '/api/webui/expression'
  */
 export async function getChatList(): Promise<ChatListResponse> {
   const response = await fetchWithAuth(`${API_BASE}/chats`, {
-    headers: getAuthHeaders(),
+    
   })
   
   if (!response.ok) {
@@ -49,7 +49,7 @@ export async function getExpressionList(params: {
   if (params.chat_id) queryParams.append('chat_id', params.chat_id)
   
   const response = await fetchWithAuth(`${API_BASE}/list?${queryParams}`, {
-    headers: getAuthHeaders(),
+    
   })
   
   if (!response.ok) {
@@ -65,7 +65,7 @@ export async function getExpressionList(params: {
  */
 export async function getExpressionDetail(expressionId: number): Promise<ExpressionDetailResponse> {
   const response = await fetchWithAuth(`${API_BASE}/${expressionId}`, {
-    headers: getAuthHeaders(),
+    
   })
   
   if (!response.ok) {
@@ -84,7 +84,7 @@ export async function createExpression(
 ): Promise<ExpressionCreateResponse> {
   const response = await fetchWithAuth(`${API_BASE}/`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    
     body: JSON.stringify(data),
   })
   
@@ -105,7 +105,7 @@ export async function updateExpression(
 ): Promise<ExpressionUpdateResponse> {
   const response = await fetchWithAuth(`${API_BASE}/${expressionId}`, {
     method: 'PATCH',
-    headers: getAuthHeaders(),
+    
     body: JSON.stringify(data),
   })
   
@@ -123,7 +123,7 @@ export async function updateExpression(
 export async function deleteExpression(expressionId: number): Promise<ExpressionDeleteResponse> {
   const response = await fetchWithAuth(`${API_BASE}/${expressionId}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
+    
   })
   
   if (!response.ok) {
@@ -140,7 +140,7 @@ export async function deleteExpression(expressionId: number): Promise<Expression
 export async function batchDeleteExpressions(expressionIds: number[]): Promise<ExpressionDeleteResponse> {
   const response = await fetchWithAuth(`${API_BASE}/batch/delete`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    
     body: JSON.stringify({ ids: expressionIds }),
   })
   
@@ -157,7 +157,7 @@ export async function batchDeleteExpressions(expressionIds: number[]): Promise<E
  */
 export async function getExpressionStats(): Promise<ExpressionStatsResponse> {
   const response = await fetchWithAuth(`${API_BASE}/stats/summary`, {
-    headers: getAuthHeaders(),
+    
   })
   
   if (!response.ok) {

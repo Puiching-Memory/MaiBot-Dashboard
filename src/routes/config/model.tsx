@@ -575,7 +575,11 @@ export function ModelConfigPage() {
     }
 
     let newModels: ModelInfo[]
+    let oldModelName: string | null = null
+    
     if (editingIndex !== null) {
+      // 记录旧的模型名称，用于更新任务配置
+      oldModelName = models[editingIndex].name
       newModels = [...models]
       newModels[editingIndex] = modelToSave
     } else {
@@ -585,6 +589,28 @@ export function ModelConfigPage() {
     setModels(newModels)
     // 立即更新模型名称列表
     setModelNames(newModels.map((m) => m.name))
+
+    // 如果模型名称发生变化，更新任务配置中对该模型的引用
+    if (oldModelName && oldModelName !== modelToSave.name && taskConfig) {
+      const updateModelList = (list: string[]): string[] => {
+        return list.map(name => name === oldModelName ? modelToSave.name : name)
+      }
+      
+      setTaskConfig({
+        ...taskConfig,
+        utils: { ...taskConfig.utils, model_list: updateModelList(taskConfig.utils?.model_list || []) },
+        utils_small: { ...taskConfig.utils_small, model_list: updateModelList(taskConfig.utils_small?.model_list || []) },
+        tool_use: { ...taskConfig.tool_use, model_list: updateModelList(taskConfig.tool_use?.model_list || []) },
+        replyer: { ...taskConfig.replyer, model_list: updateModelList(taskConfig.replyer?.model_list || []) },
+        planner: { ...taskConfig.planner, model_list: updateModelList(taskConfig.planner?.model_list || []) },
+        vlm: { ...taskConfig.vlm, model_list: updateModelList(taskConfig.vlm?.model_list || []) },
+        voice: { ...taskConfig.voice, model_list: updateModelList(taskConfig.voice?.model_list || []) },
+        embedding: { ...taskConfig.embedding, model_list: updateModelList(taskConfig.embedding?.model_list || []) },
+        lpmm_entity_extract: { ...taskConfig.lpmm_entity_extract, model_list: updateModelList(taskConfig.lpmm_entity_extract?.model_list || []) },
+        lpmm_rdf_build: { ...taskConfig.lpmm_rdf_build, model_list: updateModelList(taskConfig.lpmm_rdf_build?.model_list || []) },
+        lpmm_qa: { ...taskConfig.lpmm_qa, model_list: updateModelList(taskConfig.lpmm_qa?.model_list || []) },
+      })
+    }
 
     setEditDialogOpen(false)
     setEditingModel(null)

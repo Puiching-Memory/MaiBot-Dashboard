@@ -469,13 +469,22 @@ function SecurityTab() {
   // 实时验证新 Token
   const tokenValidation = useMemo(() => validateToken(newToken), [newToken])
 
-  // 获取当前 token
+  // 注意：当前 Token 现在存储在 HttpOnly Cookie 中，前端无法直接获取
+  // 此函数仅用于显示已获取的 Token
   const getCurrentToken = () => {
-    return localStorage.getItem('access-token') || ''
+    return currentToken || '（Token 存储在安全 Cookie 中，无法直接查看）'
   }
 
   // 复制 token 到剪贴板
   const copyToClipboard = async (text: string) => {
+    if (!currentToken) {
+      toast({
+        title: '无法复制',
+        description: 'Token 存储在安全 Cookie 中，请重新生成以获取新 Token',
+        variant: 'destructive',
+      })
+      return
+    }
     try {
       await navigator.clipboard.writeText(text)
       setCopied(true)
@@ -522,29 +531,23 @@ function SecurityTab() {
     setIsUpdating(true)
 
     try {
-      const currentAccessToken = getCurrentToken()
       const response = await fetch('/api/webui/auth/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentAccessToken}`,
         },
+        credentials: 'include', // 使用 Cookie 认证
         body: JSON.stringify({ new_token: newToken.trim() }),
       })
 
       const data = await response.json()
 
       if (response.ok && data.success) {
-        // 更新本地存储
-        localStorage.setItem('access-token', newToken.trim())
-        
         // 清空输入框
         setNewToken('')
         
-        // 如果当前 Token 正在显示,更新为新值
-        if (currentToken) {
-          setCurrentToken(newToken.trim())
-        }
+        // 更新当前显示的 Token
+        setCurrentToken(newToken.trim())
         
         toast({
           title: '更新成功',
@@ -553,8 +556,6 @@ function SecurityTab() {
 
         // 延迟跳转到登录页
         setTimeout(() => {
-          // 清除 token，确保需要重新登录
-          localStorage.removeItem('access-token')
           navigate({ to: '/auth' })
         }, 1500)
       } else {
@@ -581,21 +582,17 @@ function SecurityTab() {
     setIsRegenerating(true)
 
     try {
-      const currentAccessToken = getCurrentToken()
       const response = await fetch('/api/webui/auth/regenerate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentAccessToken}`,
         },
+        credentials: 'include', // 使用 Cookie 认证
       })
 
       const data = await response.json()
 
       if (response.ok && data.success) {
-        // 更新本地存储
-        localStorage.setItem('access-token', data.token)
-        
         // 更新当前显示的 Token
         setCurrentToken(data.token)
         
@@ -656,8 +653,6 @@ function SecurityTab() {
     
     // 跳转到登录页
     setTimeout(() => {
-      // 清除 token，确保需要重新登录
-      localStorage.removeItem('access-token')
       navigate({ to: '/auth' })
     }, 500)
   }
@@ -748,17 +743,21 @@ function SecurityTab() {
                 <Input
                   id="current-token"
                   type={showCurrentToken ? 'text' : 'password'}
-                  value={currentToken || getCurrentToken()}
+                  value={currentToken || '••••••••••••••••••••••••••••••••'}
                   readOnly
                   className="pr-10 font-mono text-sm"
-                  placeholder="点击查看按钮显示 Token"
+                  placeholder="Token 存储在安全 Cookie 中"
                 />
                 <button
                   onClick={() => {
-                    if (!currentToken) {
-                      setCurrentToken(getCurrentToken())
+                    if (currentToken) {
+                      setShowCurrentToken(!showCurrentToken)
+                    } else {
+                      toast({
+                        title: '无法查看',
+                        description: 'Token 存储在安全 Cookie 中，如需新 Token 请点击"重新生成"',
+                      })
                     }
-                    setShowCurrentToken(!showCurrentToken)
                   }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-accent rounded"
                   title={showCurrentToken ? '隐藏' : '显示'}
@@ -774,9 +773,10 @@ function SecurityTab() {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => copyToClipboard(getCurrentToken())}
+                  onClick={() => copyToClipboard(currentToken)}
                   title="复制到剪贴板"
                   className="flex-shrink-0"
+                  disabled={!currentToken}
                 >
                   {copied ? (
                     <Check className="h-4 w-4 text-green-500" />

@@ -2,7 +2,7 @@
  * 表情包管理 API 客户端
  */
 
-import { fetchWithAuth, getAuthHeaders } from '@/lib/fetch-with-auth'
+import { fetchWithAuth } from '@/lib/fetch-with-auth'
 import type {
   EmojiListResponse,
   EmojiDetailResponse,
@@ -38,7 +38,6 @@ export async function getEmojiList(params: {
   if (params.sort_order) query.append('sort_order', params.sort_order)
 
   const response = await fetchWithAuth(`${API_BASE}/list?${query}`, {
-    headers: getAuthHeaders(),
   })
 
   if (!response.ok) {
@@ -53,7 +52,6 @@ export async function getEmojiList(params: {
  */
 export async function getEmojiDetail(id: number): Promise<EmojiDetailResponse> {
   const response = await fetchWithAuth(`${API_BASE}/${id}`, {
-    headers: getAuthHeaders(),
   })
 
   if (!response.ok) {
@@ -72,7 +70,6 @@ export async function updateEmoji(
 ): Promise<EmojiUpdateResponse> {
   const response = await fetchWithAuth(`${API_BASE}/${id}`, {
     method: 'PATCH',
-    headers: getAuthHeaders(),
     body: JSON.stringify(data),
   })
 
@@ -89,7 +86,6 @@ export async function updateEmoji(
 export async function deleteEmoji(id: number): Promise<EmojiDeleteResponse> {
   const response = await fetchWithAuth(`${API_BASE}/${id}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
   })
 
   if (!response.ok) {
@@ -104,7 +100,6 @@ export async function deleteEmoji(id: number): Promise<EmojiDeleteResponse> {
  */
 export async function getEmojiStats(): Promise<EmojiStatsResponse> {
   const response = await fetchWithAuth(`${API_BASE}/stats/summary`, {
-    headers: getAuthHeaders(),
   })
 
   if (!response.ok) {
@@ -120,7 +115,6 @@ export async function getEmojiStats(): Promise<EmojiStatsResponse> {
 export async function registerEmoji(id: number): Promise<EmojiUpdateResponse> {
   const response = await fetchWithAuth(`${API_BASE}/${id}/register`, {
     method: 'POST',
-    headers: getAuthHeaders(),
   })
 
   if (!response.ok) {
@@ -136,7 +130,7 @@ export async function registerEmoji(id: number): Promise<EmojiUpdateResponse> {
 export async function banEmoji(id: number): Promise<EmojiUpdateResponse> {
   const response = await fetchWithAuth(`${API_BASE}/${id}/ban`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    
   })
 
   if (!response.ok) {
@@ -147,11 +141,11 @@ export async function banEmoji(id: number): Promise<EmojiUpdateResponse> {
 }
 
 /**
- * 获取表情包缩略图 URL（带 token）
+ * 获取表情包缩略图 URL
+ * 注意：使用 HttpOnly Cookie 进行认证，浏览器会自动携带
  */
 export function getEmojiThumbnailUrl(id: number): string {
-  const token = localStorage.getItem('access-token')
-  return `${API_BASE}/${id}/thumbnail?token=${encodeURIComponent(token || '')}`
+  return `${API_BASE}/${id}/thumbnail`
 }
 
 /**
@@ -166,7 +160,7 @@ export async function batchDeleteEmojis(emojiIds: number[]): Promise<{
 }> {
   const response = await fetchWithAuth(`${API_BASE}/batch/delete`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    
     body: JSON.stringify({ emoji_ids: emojiIds }),
   })
 
