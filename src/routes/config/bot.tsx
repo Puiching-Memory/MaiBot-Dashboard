@@ -687,48 +687,40 @@ export function BotConfigPage() {
     <ScrollArea className="h-full">
       <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
         {/* 页面标题 */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">麦麦主程序配置</h1>
-            <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">管理麦麦的核心功能和行为设置</p>
-          </div>
-          <div className="flex gap-2 w-full sm:w-auto items-center">
-            {/* 模式切换 */}
-            <Tabs value={editMode} onValueChange={(v) => handleModeChange(v as 'visual' | 'source')} className="w-auto">
-              <TabsList className="h-9">
-                <TabsTrigger value="visual" className="text-xs sm:text-sm px-2 sm:px-3">
-                  <Layout className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  可视化
-                </TabsTrigger>
-                <TabsTrigger value="source" className="text-xs sm:text-sm px-2 sm:px-3">
-                  <Code2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  源代码
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            
-            <Button
-              onClick={editMode === 'visual' ? saveConfig : saveSourceCode}
-              disabled={saving || autoSaving || !hasUnsavedChanges || restarting}
-              size="sm"
-              variant="outline"
-              className="flex-1 sm:flex-none"
-            >
-              <Save className="mr-2 h-4 w-4" strokeWidth={2} fill="none" />
-              {saving ? '保存中...' : autoSaving ? '自动保存中...' : hasUnsavedChanges ? '保存配置' : '已保存'}
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  disabled={saving || autoSaving || restarting}
-                  size="sm"
-                  className="flex-1 sm:flex-none"
-                >
-                  <Power className="mr-2 h-4 w-4" />
-                  {restarting ? '重启中...' : hasUnsavedChanges ? '保存并重启' : '重启麦麦'}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">麦麦主程序配置</h1>
+              <p className="text-muted-foreground mt-1 text-xs sm:text-sm">管理麦麦的核心功能和行为设置</p>
+            </div>
+            {/* 按钮组 - 桌面端靠右 */}
+            <div className="flex gap-2 flex-shrink-0">
+              <Button
+                onClick={editMode === 'visual' ? saveConfig : saveSourceCode}
+                disabled={saving || autoSaving || !hasUnsavedChanges || restarting}
+                size="sm"
+                variant="outline"
+                className="w-20 sm:w-24"
+              >
+                <Save className="h-4 w-4 flex-shrink-0" strokeWidth={2} fill="none" />
+                <span className="ml-1 truncate text-xs sm:text-sm">
+                  {saving ? '保存中' : autoSaving ? '自动' : hasUnsavedChanges ? '保存' : '已保存'}
+                </span>
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    disabled={saving || autoSaving || restarting}
+                    size="sm"
+                    className="w-20 sm:w-28"
+                  >
+                    <Power className="h-4 w-4 flex-shrink-0" />
+                    <span className="ml-1 truncate text-xs sm:text-sm">
+                      {restarting ? '重启中' : hasUnsavedChanges ? '保存重启' : '重启'}
+                    </span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>确认重启麦麦？</AlertDialogTitle>
                   <AlertDialogDescription className="space-y-3" asChild>
@@ -758,7 +750,7 @@ export function BotConfigPage() {
                                 </DialogDescription>
                               </DialogHeader>
                               <Tabs defaultValue="windows" className="w-full">
-                                <TabsList className="grid w-full grid-cols-3">
+                                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
                                   <TabsTrigger value="windows">Windows</TabsTrigger>
                                   <TabsTrigger value="macos">macOS</TabsTrigger>
                                   <TabsTrigger value="linux">Linux</TabsTrigger>
@@ -850,6 +842,23 @@ export function BotConfigPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            </div>
+          </div>
+          
+          {/* 模式切换 - 单独一行 */}
+          <div className="flex">
+            <Tabs value={editMode} onValueChange={(v) => handleModeChange(v as 'visual' | 'source')} className="w-full">
+              <TabsList className="h-8 sm:h-9 w-full grid grid-cols-2">
+                <TabsTrigger value="visual" className="text-xs sm:text-sm">
+                  <Layout className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  可视化编辑
+                </TabsTrigger>
+                <TabsTrigger value="source" className="text-xs sm:text-sm">
+                  <Code2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  源代码编辑
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </div>
 
@@ -898,20 +907,18 @@ export function BotConfigPage() {
           <>
         {/* 标签页 */}
         <Tabs defaultValue="bot" className="w-full">
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-5 lg:grid-cols-10">
-              <TabsTrigger value="bot" className="flex-shrink-0">基本信息</TabsTrigger>
-              <TabsTrigger value="personality" className="flex-shrink-0">人格</TabsTrigger>
-              <TabsTrigger value="chat" className="flex-shrink-0">聊天</TabsTrigger>
-              <TabsTrigger value="expression" className="flex-shrink-0">表达</TabsTrigger>
-              <TabsTrigger value="features" className="flex-shrink-0">功能</TabsTrigger>
-              <TabsTrigger value="processing" className="flex-shrink-0">处理</TabsTrigger>
-              <TabsTrigger value="mood" className="flex-shrink-0">情绪</TabsTrigger>
-              <TabsTrigger value="voice" className="flex-shrink-0">语音</TabsTrigger>
-              <TabsTrigger value="lpmm" className="flex-shrink-0">知识库</TabsTrigger>
-              <TabsTrigger value="other" className="flex-shrink-0">其他</TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1 sm:grid sm:grid-cols-5 lg:grid-cols-10">
+            <TabsTrigger value="bot" className="text-xs px-2 py-1.5 sm:px-3 sm:py-2 data-[state=active]:shadow-sm">基本信息</TabsTrigger>
+            <TabsTrigger value="personality" className="text-xs px-2 py-1.5 sm:px-3 sm:py-2 data-[state=active]:shadow-sm">人格</TabsTrigger>
+            <TabsTrigger value="chat" className="text-xs px-2 py-1.5 sm:px-3 sm:py-2 data-[state=active]:shadow-sm">聊天</TabsTrigger>
+            <TabsTrigger value="expression" className="text-xs px-2 py-1.5 sm:px-3 sm:py-2 data-[state=active]:shadow-sm">表达</TabsTrigger>
+            <TabsTrigger value="features" className="text-xs px-2 py-1.5 sm:px-3 sm:py-2 data-[state=active]:shadow-sm">功能</TabsTrigger>
+            <TabsTrigger value="processing" className="text-xs px-2 py-1.5 sm:px-3 sm:py-2 data-[state=active]:shadow-sm">处理</TabsTrigger>
+            <TabsTrigger value="mood" className="text-xs px-2 py-1.5 sm:px-3 sm:py-2 data-[state=active]:shadow-sm">情绪</TabsTrigger>
+            <TabsTrigger value="voice" className="text-xs px-2 py-1.5 sm:px-3 sm:py-2 data-[state=active]:shadow-sm">语音</TabsTrigger>
+            <TabsTrigger value="lpmm" className="text-xs px-2 py-1.5 sm:px-3 sm:py-2 data-[state=active]:shadow-sm">知识库</TabsTrigger>
+            <TabsTrigger value="other" className="text-xs px-2 py-1.5 sm:px-3 sm:py-2 data-[state=active]:shadow-sm">其他</TabsTrigger>
+          </TabsList>
           {/* 基本信息 */}
           <TabsContent value="bot" className="space-y-4">
             {botConfig && <BotInfoSection config={botConfig} onChange={setBotConfig} />}
@@ -988,11 +995,11 @@ export function BotConfigPage() {
           {maimMessageConfig && <MaimMessageSection config={maimMessageConfig} onChange={setMaimMessageConfig} />}
           {telemetryConfig && <TelemetrySection config={telemetryConfig} onChange={setTelemetryConfig} />}
         </TabsContent>
-      </Tabs>
-          </>
+        </Tabs>
+        </>
         )}
 
-      {/* 重启遮罩层 */}
+        {/* 重启遮罩层 */}
       {showRestartOverlay && (
         <RestartingOverlay 
           onRestartComplete={handleRestartComplete}
@@ -1047,7 +1054,7 @@ function BotInfoSection({
   }
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-6">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">基本信息</h3>
 
@@ -1203,7 +1210,7 @@ function PersonalitySection({
   }
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-6">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">人格设置</h3>
 
@@ -1431,7 +1438,7 @@ function ChatSection({
             {value || '选择时间段'}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-80">
+        <PopoverContent className="w-72 sm:w-80">
           <div className="space-y-4">
             <div>
               <h4 className="font-medium text-sm mb-3">开始时间</h4>
@@ -1545,7 +1552,7 @@ function ChatSection({
             预览
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-96">
+        <PopoverContent className="w-80 sm:w-96">
           <div className="space-y-2">
             <h4 className="font-medium text-sm">配置预览</h4>
             <div className="rounded-md bg-muted p-3 font-mono text-xs break-all">
@@ -1561,7 +1568,7 @@ function ChatSection({
   }
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-6">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">聊天设置</h3>
         <div className="grid gap-4">
@@ -1734,8 +1741,8 @@ function ChatSection({
                       const chatType = parts[2] || 'group'
                       
                       return (
-                        <div className="grid gap-4 p-4 rounded-lg bg-muted/50">
-                          <div className="grid grid-cols-3 gap-3">
+                        <div className="grid gap-4 p-3 sm:p-4 rounded-lg bg-muted/50">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             {/* 平台选择 */}
                             <div className="grid gap-2">
                               <Label className="text-xs font-medium">平台</Label>
@@ -2023,7 +2030,7 @@ function ExpressionSection({
             预览
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-96">
+        <PopoverContent className="w-80 sm:w-96">
           <div className="space-y-2">
             <h4 className="font-medium text-sm">配置预览</h4>
             <div className="rounded-md bg-muted p-3 font-mono text-xs break-all">
@@ -2087,7 +2094,7 @@ function ExpressionSection({
   return (
     <div className="space-y-6">
       {/* 表达学习配置 */}
-      <div className="rounded-lg border bg-card p-6 space-y-6">
+      <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-6">
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -2181,8 +2188,8 @@ function ExpressionSection({
 
                     {/* 详细配置选项 - 只在非全局时显示 */}
                     {!isGlobal && (
-                      <div className="grid gap-4 p-4 rounded-lg bg-muted/50">
-                        <div className="grid grid-cols-3 gap-3">
+                      <div className="grid gap-4 p-3 sm:p-4 rounded-lg bg-muted/50">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           {/* 平台选择 */}
                           <div className="grid gap-2">
                             <Label className="text-xs font-medium">平台</Label>
@@ -2329,7 +2336,7 @@ function ExpressionSection({
       </div>
 
       {/* 表达反思配置 */}
-      <div className="rounded-lg border bg-card p-6 space-y-6">
+      <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-6">
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -2363,8 +2370,8 @@ function ExpressionSection({
                     const chatType = parts[2] || 'private'
                     
                     return (
-                      <div className="grid gap-4 p-4 rounded-lg bg-muted/50">
-                        <div className="grid grid-cols-3 gap-3">
+                      <div className="grid gap-4 p-3 sm:p-4 rounded-lg bg-muted/50">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           {/* 平台选择 */}
                           <div className="grid gap-2">
                             <Label className="text-xs font-medium">平台</Label>
@@ -2535,7 +2542,7 @@ function ExpressionSection({
       </div>
 
       {/* 表达共享组配置 */}
-      <div className="rounded-lg border bg-card p-6 space-y-6">
+      <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-6">
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -2649,7 +2656,7 @@ function FeaturesSection({
   return (
     <div className="space-y-6">
       {/* 工具设置 */}
-      <div className="rounded-lg border bg-card p-6 space-y-4">
+      <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-4">
         <div>
           <h3 className="text-lg font-semibold mb-4">工具设置</h3>
           <div className="flex items-center space-x-2">
@@ -2669,7 +2676,7 @@ function FeaturesSection({
       </div>
 
       {/* 记忆设置 */}
-      <div className="rounded-lg border bg-card p-6 space-y-4">
+      <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-4">
         <div>
           <h3 className="text-lg font-semibold mb-4">记忆设置</h3>
           <div className="grid gap-2">
@@ -2689,7 +2696,7 @@ function FeaturesSection({
       </div>
 
       {/* 表情包设置 */}
-      <div className="rounded-lg border bg-card p-6 space-y-4">
+      <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-4">
         <div>
           <h3 className="text-lg font-semibold mb-4">表情包设置</h3>
           <div className="grid gap-4">
@@ -3438,7 +3445,7 @@ function ProcessingSection({
   return (
     <div className="space-y-6">
       {/* 关键词反应配置 */}
-      <div className="rounded-lg border bg-card p-6 space-y-6">
+      <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-6">
         <div>
           <h3 className="text-lg font-semibold mb-2">关键词反应配置</h3>
           <p className="text-sm text-muted-foreground">
@@ -3650,7 +3657,7 @@ function ProcessingSection({
       </div>
 
       {/* 回复后处理配置 */}
-      <div className="rounded-lg border bg-card p-6 space-y-6">
+      <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-6">
         <div>
           <h3 className="text-lg font-semibold mb-4">回复后处理配置</h3>
           <div className="flex items-center space-x-2">
@@ -3890,7 +3897,7 @@ function MoodSection({
   onChange: (config: MoodConfig) => void
 }) {
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-4">
       <h3 className="text-lg font-semibold">情绪设置</h3>
       <div className="grid gap-4">
         <div className="flex items-center space-x-2">
@@ -3938,7 +3945,7 @@ function VoiceSection({
   onChange: (config: VoiceConfig) => void
 }) {
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-4">
       <h3 className="text-lg font-semibold">语音设置</h3>
       <div className="flex items-center space-x-2">
         <Switch
@@ -3962,7 +3969,7 @@ function LPMMSection({
   onChange: (config: LPMMKnowledgeConfig) => void
 }) {
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-4">
       <h3 className="text-lg font-semibold">LPMM 知识库设置</h3>
       <div className="grid gap-4">
         <div className="flex items-center space-x-2">
@@ -4311,7 +4318,7 @@ function DebugSection({
   onChange: (config: DebugConfig) => void
 }) {
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-4">
       <h3 className="text-lg font-semibold">调试配置</h3>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -4422,7 +4429,7 @@ function MaimMessageSection({
   }
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-6">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">MaimMessage 服务配置</h3>
         <div className="space-y-4">
@@ -4565,7 +4572,7 @@ function TelemetrySection({
   onChange: (config: TelemetryConfig) => void
 }) {
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
+    <div className="rounded-lg border bg-card p-4 sm:p-6 space-y-4">
       <h3 className="text-lg font-semibold">统计信息</h3>
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
