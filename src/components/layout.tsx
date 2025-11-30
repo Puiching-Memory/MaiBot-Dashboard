@@ -1,6 +1,6 @@
-import { Menu, Moon, Sun, ChevronLeft, Home, Settings, LogOut, FileText, Server, Boxes, Smile, MessageSquare, UserCircle, FileSearch, Package, BookOpen, Search, RotateCw, Palette, ExternalLink, Sliders, Network } from 'lucide-react'
+import { Menu, Moon, Sun, ChevronLeft, Home, Settings, LogOut, FileText, Server, Boxes, Smile, MessageSquare, UserCircle, FileSearch, Package, BookOpen, Search, Sliders, Network } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router'
+import { Link, useMatchRoute } from '@tanstack/react-router'
 import { useTheme, toggleThemeWithTransition } from './use-theme'
 import { useAuthGuard } from '@/hooks/use-auth'
 import { logout } from '@/lib/fetch-with-auth'
@@ -8,17 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { SearchDialog } from '@/components/search-dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuSub,
-  ContextMenuSubContent,
-  ContextMenuSubTrigger,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -54,7 +43,6 @@ export function Layout({ children }: LayoutProps) {
   const [searchOpen, setSearchOpen] = useState(false)
   const { theme, setTheme } = useTheme()
   const matchRoute = useMatchRoute()
-  const navigate = useNavigate()
 
   // 搜索快捷键监听（Cmd/Ctrl + K）
   useEffect(() => {
@@ -373,92 +361,7 @@ export function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Page content */}
-        <ContextMenu>
-          <ContextMenuTrigger asChild>
-            <main className="flex-1 overflow-hidden bg-background">{children}</main>
-          </ContextMenuTrigger>
-          <ContextMenuContent className="w-64">
-            {/* 快速导航 */}
-            <ContextMenuItem onClick={() => navigate({ to: '/' })}>
-              <Home className="mr-2 h-4 w-4" />
-              首页
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => navigate({ to: '/settings' })}>
-              <Settings className="mr-2 h-4 w-4" />
-              系统设置
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => navigate({ to: '/logs' })}>
-              <FileSearch className="mr-2 h-4 w-4" />
-              日志查看器
-            </ContextMenuItem>
-            
-            <ContextMenuSeparator />
-            
-            {/* 主题切换子菜单 */}
-            <ContextMenuSub>
-              <ContextMenuSubTrigger>
-                <Palette className="mr-2 h-4 w-4" />
-                切换主题
-              </ContextMenuSubTrigger>
-              <ContextMenuSubContent className="w-48">
-                <ContextMenuItem 
-                  onClick={() => setTheme('light')}
-                  disabled={theme === 'light'}
-                >
-                  <Sun className="mr-2 h-4 w-4" />
-                  浅色
-                  {theme === 'light' && <ContextMenuShortcut>✓</ContextMenuShortcut>}
-                </ContextMenuItem>
-                <ContextMenuItem 
-                  onClick={() => setTheme('dark')}
-                  disabled={theme === 'dark'}
-                >
-                  <Moon className="mr-2 h-4 w-4" />
-                  深色
-                  {theme === 'dark' && <ContextMenuShortcut>✓</ContextMenuShortcut>}
-                </ContextMenuItem>
-                <ContextMenuItem 
-                  onClick={() => setTheme('system')}
-                  disabled={theme === 'system'}
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  跟随系统
-                  {theme === 'system' && <ContextMenuShortcut>✓</ContextMenuShortcut>}
-                </ContextMenuItem>
-              </ContextMenuSubContent>
-            </ContextMenuSub>
-            
-            <ContextMenuSeparator />
-            
-            {/* 操作 */}
-            <ContextMenuItem onClick={() => window.location.reload()}>
-              <RotateCw className="mr-2 h-4 w-4" />
-              刷新页面
-              <ContextMenuShortcut>⌘R</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => setSearchOpen(true)}>
-              <Search className="mr-2 h-4 w-4" />
-              搜索
-              <ContextMenuShortcut>⌘K</ContextMenuShortcut>
-            </ContextMenuItem>
-            
-            <ContextMenuSeparator />
-            
-            {/* 外部链接 */}
-            <ContextMenuItem onClick={() => window.open('https://docs.mai-mai.org', '_blank')}>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              麦麦文档
-            </ContextMenuItem>
-            
-            <ContextMenuSeparator />
-            
-            {/* 登出 */}
-            <ContextMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-              <LogOut className="mr-2 h-4 w-4" />
-              登出系统
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
+        <main className="flex-1 overflow-hidden bg-background">{children}</main>
       </div>
     </div>
     </TooltipProvider>
