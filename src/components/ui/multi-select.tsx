@@ -78,6 +78,18 @@ function SortableBadge({
     opacity: isDragging ? 0.5 : 1,
   }
 
+  // 处理删除按钮点击，阻止事件冒泡和默认行为
+  const handleRemoveClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onRemove(value)
+  }
+
+  // 阻止删除按钮上的指针事件被 DndContext 捕获
+  const handleRemovePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation()
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -99,15 +111,19 @@ function SortableBadge({
           <GripVertical className="h-3 w-3 text-muted-foreground" />
         </div>
         <span>{label}</span>
-        <X
-          className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
-          strokeWidth={2}
-          fill="none"
-          onClick={(e: React.MouseEvent) => {
-            e.stopPropagation()
-            onRemove(value)
-          }}
-        />
+        <button
+          type="button"
+          className="ml-1 rounded-sm hover:bg-destructive/20 focus:outline-none focus:ring-1 focus:ring-destructive"
+          onClick={handleRemoveClick}
+          onPointerDown={handleRemovePointerDown}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <X
+            className="h-3 w-3 cursor-pointer hover:text-destructive"
+            strokeWidth={2}
+            fill="none"
+          />
+        </button>
       </Badge>
     </div>
   )

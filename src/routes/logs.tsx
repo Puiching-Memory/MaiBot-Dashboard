@@ -189,12 +189,54 @@ export function LogViewerPage() {
     overscan: 15, // 增加预渲染数量以提高流畅度
   })
 
+  // 用于追踪是否是程序触发的滚动
+  const isAutoScrollingRef = useRef(false)
+  // 用于追踪上一次的日志数量
+  const prevLogCountRef = useRef(filteredLogs.length)
+
+  // 检测用户滚动行为，当用户向上滚动时禁用自动滚动
+  useEffect(() => {
+    const scrollElement = parentRef.current
+    if (!scrollElement) return
+
+    const handleScroll = () => {
+      // 如果是程序触发的滚动，忽略
+      if (isAutoScrollingRef.current) return
+
+      const { scrollTop, scrollHeight, clientHeight } = scrollElement
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+      
+      // 如果距离底部超过 100px，说明用户在向上查看，禁用自动滚动
+      if (distanceFromBottom > 100 && autoScroll) {
+        setAutoScroll(false)
+      }
+      // 如果用户滚动到接近底部（小于 50px），可以重新启用自动滚动
+      else if (distanceFromBottom < 50 && !autoScroll) {
+        setAutoScroll(true)
+      }
+    }
+
+    scrollElement.addEventListener('scroll', handleScroll, { passive: true })
+    return () => scrollElement.removeEventListener('scroll', handleScroll)
+  }, [autoScroll])
+
   // 自动滚动到底部
   useEffect(() => {
-    if (autoScroll && filteredLogs.length > 0) {
+    // 只有在日志数量增加时才滚动（避免删除日志时触发）
+    const logCountIncreased = filteredLogs.length > prevLogCountRef.current
+    prevLogCountRef.current = filteredLogs.length
+
+    if (autoScroll && filteredLogs.length > 0 && logCountIncreased) {
+      isAutoScrollingRef.current = true
       rowVirtualizer.scrollToIndex(filteredLogs.length - 1, {
         align: 'end',
         behavior: 'auto',
+      })
+      // 稍后重置标志，给滚动事件处理一些时间
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          isAutoScrollingRef.current = false
+        })
       })
     }
   }, [filteredLogs.length, autoScroll, rowVirtualizer])
