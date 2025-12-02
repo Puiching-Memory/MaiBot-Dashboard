@@ -130,7 +130,7 @@ interface ChatTab {
 // 消息类型
 interface ChatMessage {
   id: string
-  type: 'user' | 'bot' | 'system' | 'error'
+  type: 'user' | 'bot' | 'system' | 'error' | 'thinking'
   content: string
   timestamp: number
   sender?: {
@@ -482,7 +482,18 @@ export function ChatPage() {
               })
               break
 
-            case 'user_message':
+            case 'user_message': {
+              // 检查是否是自己发的消息（已在发送时显示，跳过广播回来的）
+              const senderUserId = data.sender?.user_id
+              const currentUserId = tabType === 'virtual' && config 
+                ? config.userId 
+                : userIdRef.current
+              
+              // 如果是自己发的消息，跳过（避免重复显示）
+              if (senderUserId === currentUserId) {
+                break
+              }
+              
               addMessageToTab(tabId, {
                 id: data.message_id || generateMessageId('user'),
                 type: 'user',
@@ -491,6 +502,7 @@ export function ChatPage() {
                 sender: data.sender,
               })
               break
+            }
 
             case 'bot_message': {
               updateTab(tabId, { isTyping: false })
@@ -507,13 +519,22 @@ export function ChatPage() {
                 if (firstKey) processedSet.delete(firstKey)
               }
               
-              addMessageToTab(tabId, {
-                id: generateMessageId('bot'),
-                type: 'bot',
-                content: data.content || '',
-                timestamp: data.timestamp || Date.now() / 1000,
-                sender: data.sender,
-              })
+              // 移除"思考中"占位消息，添加真实的机器人回复
+              setTabs(prev => prev.map(tab => {
+                if (tab.id !== tabId) return tab
+                // 过滤掉 thinking 类型的消息
+                const filteredMessages = tab.messages.filter(msg => msg.type !== 'thinking')
+                return {
+                  ...tab,
+                  messages: [...filteredMessages, {
+                    id: generateMessageId('bot'),
+                    type: 'bot' as const,
+                    content: data.content || '',
+                    timestamp: data.timestamp || Date.now() / 1000,
+                    sender: data.sender,
+                  }]
+                }
+              }))
               break
             }
 
@@ -522,12 +543,20 @@ export function ChatPage() {
               break
 
             case 'error':
-              addMessageToTab(tabId, {
-                id: generateMessageId('error'),
-                type: 'error',
-                content: data.content || '发生错误',
-                timestamp: data.timestamp || Date.now() / 1000,
-              })
+              // 移除"思考中"占位消息，显示错误
+              setTabs(prev => prev.map(tab => {
+                if (tab.id !== tabId) return tab
+                const filteredMessages = tab.messages.filter(msg => msg.type !== 'thinking')
+                return {
+                  ...tab,
+                  messages: [...filteredMessages, {
+                    id: generateMessageId('error'),
+                    type: 'error' as const,
+                    content: data.content || '发生错误',
+                    timestamp: data.timestamp || Date.now() / 1000,
+                  }]
+                }
+              }))
               toast({
                 title: '错误',
                 description: data.content,
@@ -694,14 +723,43 @@ export function ChatPage() {
       ? activeTab.virtualConfig?.userName || userName
       : userName
 
+    const messageContent = inputValue.trim()
+    const currentTimestamp = Date.now() / 1000
+
     ws.send(JSON.stringify({
       type: 'message',
-      content: inputValue.trim(),
+      content: messageContent,
       user_name: displayName,
     }))
 
+    // 先添加用户消息（立即显示）
+    const userMessage: ChatMessage = {
+      id: generateMessageId('user'),
+      type: 'user',
+      content: messageContent,
+      timestamp: currentTimestamp,
+      sender: {
+        name: displayName,
+        is_bot: false,
+      }
+    }
+    addMessageToTab(activeTabId, userMessage)
+
+    // 再添加"思考中"占位消息
+    const thinkingMessage: ChatMessage = {
+      id: generateMessageId('thinking'),
+      type: 'thinking',
+      content: '',
+      timestamp: currentTimestamp + 0.001, // 稍微晚一点确保顺序
+      sender: {
+        name: activeTab?.sessionInfo.bot_name || '麦麦',
+        is_bot: true,
+      }
+    }
+    addMessageToTab(activeTabId, thinkingMessage)
+
     setInputValue('')
-  }, [inputValue, userName, activeTabId, activeTab])
+  }, [inputValue, userName, activeTabId, activeTab, addMessageToTab])
 
   // 处理键盘事件
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1250,6 +1308,32 @@ export function ChatPage() {
                   </div>
                 )}
 
+                {/* 思考中占位消息 */}
+                {message.type === 'thinking' && (
+                  <>
+                    <Avatar className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col gap-1 max-w-[75%] sm:max-w-[70%]">
+                      <div className="flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground">
+                        <span className="hidden sm:inline">{message.sender?.name || activeTab?.sessionInfo.bot_name}</span>
+                      </div>
+                      <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1">
+                            <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
+                          <span className="text-xs text-muted-foreground ml-1">思考中...</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 {/* 用户/机器人消息 */}
                 {(message.type === 'user' || message.type === 'bot') && (
                   <>
@@ -1294,24 +1378,6 @@ export function ChatPage() {
                 )}
               </div>
             ))}
-
-            {/* 正在输入指示器 */}
-            {activeTab?.isTyping && (
-              <div className="flex gap-2 sm:gap-3">
-                <Avatar className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div ref={messagesEndRef} />
           </div>

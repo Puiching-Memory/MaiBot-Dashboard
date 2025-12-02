@@ -11,6 +11,7 @@ import { ModelConfigPage } from './routes/config/model'
 import { AdapterConfigPage } from './routes/config/adapter'
 import { EmojiManagementPage } from './routes/resource/emoji'
 import { ExpressionManagementPage } from './routes/resource/expression'
+import { JargonManagementPage } from './routes/resource/jargon'
 import { PersonManagementPage } from './routes/person'
 import { KnowledgeGraphPage } from './routes/resource/knowledge-graph'
 import { LogViewerPage } from './routes/logs'
@@ -120,6 +121,13 @@ const personManagementRoute = createRoute({
   component: PersonManagementPage,
 })
 
+// 资源管理路由 - 黑话管理
+const jargonManagementRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/resource/jargon',
+  component: JargonManagementPage,
+})
+
 // 资源管理路由 - 知识库图谱可视化
 const knowledgeGraphRoute = createRoute({
   getParentRoute: () => protectedRoute,
@@ -188,6 +196,7 @@ const routeTree = rootRoute.addChildren([
     adapterConfigRoute,
     emojiManagementRoute,
     expressionManagementRoute,
+    jargonManagementRoute,
     personManagementRoute,
     knowledgeGraphRoute,
     pluginsRoute,

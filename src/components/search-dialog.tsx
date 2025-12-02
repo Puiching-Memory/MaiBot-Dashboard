@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Search, FileText, Server, Boxes, Smile, MessageSquare, UserCircle, FileSearch, BarChart3, Package, Settings, Home } from 'lucide-react'
+import { Search, FileText, Server, Boxes, Smile, MessageSquare, UserCircle, FileSearch, BarChart3, Package, Settings, Home, Hash } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   Dialog,
@@ -72,6 +72,13 @@ const searchItems: SearchItem[] = [
     title: '人物信息管理',
     description: '管理人物信息',
     path: '/resource/person',
+    category: '资源',
+  },
+  {
+    icon: Hash,
+    title: '黑话管理',
+    description: '管理麦麦学习到的黑话和俚语',
+    path: '/resource/jargon',
     category: '资源',
   },
   {
