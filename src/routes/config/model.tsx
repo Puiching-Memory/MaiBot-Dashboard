@@ -62,6 +62,7 @@ import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { RestartingOverlay } from '@/components/RestartingOverlay'
+import { KeyValueEditor } from '@/components/ui/key-value-editor'
 import { findTemplateByBaseUrl, type ProviderTemplate } from './providerTemplates'
 import { useTour } from '@/components/tour'
 import { MODEL_ASSIGNMENT_TOUR_ID, modelAssignmentTourSteps, STEP_ROUTE_MAP } from '@/components/tour/tours/model-assignment-tour'
@@ -73,6 +74,7 @@ interface ModelInfo {
   api_provider: string
   price_in: number | null
   price_out: number | null
+  temperature?: number | null  // 模型级别温度，覆盖任务配置中的温度
   force_stream_mode?: boolean
   extra_params?: Record<string, unknown>
 }
@@ -92,6 +94,7 @@ interface TaskConfig {
   model_list: string[]
   temperature?: number
   max_tokens?: number
+  slow_threshold?: number
 }
 
 interface ModelTaskConfig {
@@ -533,6 +536,7 @@ export function ModelConfigPage() {
         api_provider: providers[0] || '',
         price_in: 0,
         price_out: 0,
+        temperature: null,
         force_stream_mode: false,
         extra_params: {},
       }
@@ -955,8 +959,8 @@ export function ModelConfigPage() {
                         <p className="font-medium">{model.api_provider}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground text-xs">强制流式</span>
-                        <p className="font-medium">{model.force_stream_mode ? '是' : '否'}</p>
+                        <span className="text-muted-foreground text-xs">模型温度</span>
+                        <p className="font-medium">{model.temperature != null ? model.temperature : <span className="text-muted-foreground">默认</span>}</p>
                       </div>
                       <div>
                         <span className="text-muted-foreground text-xs">输入价格</span>
@@ -989,9 +993,9 @@ export function ModelConfigPage() {
                     <TableHead>模型名称</TableHead>
                     <TableHead>模型标识符</TableHead>
                     <TableHead>提供商</TableHead>
+                    <TableHead className="text-center">温度</TableHead>
                     <TableHead className="text-right">输入价格</TableHead>
                     <TableHead className="text-right">输出价格</TableHead>
-                    <TableHead className="text-center">强制流式</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1027,11 +1031,11 @@ export function ModelConfigPage() {
                           {model.model_identifier}
                         </TableCell>
                         <TableCell>{model.api_provider}</TableCell>
+                        <TableCell className="text-center">
+                          {model.temperature != null ? model.temperature : <span className="text-muted-foreground">-</span>}
+                        </TableCell>
                         <TableCell className="text-right">¥{model.price_in}/M</TableCell>
                         <TableCell className="text-right">¥{model.price_out}/M</TableCell>
-                        <TableCell className="text-center">
-                          {model.force_stream_mode ? '是' : '否'}
-                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -1566,6 +1570,59 @@ export function ModelConfigPage() {
               </div>
             </div>
 
+            {/* 模型级别温度 */}
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enable_model_temperature" className="cursor-pointer">自定义模型温度</Label>
+                  <p className="text-xs text-muted-foreground">
+                    启用后将覆盖「为模型分配功能」中的任务温度配置
+                  </p>
+                </div>
+                <Switch
+                  id="enable_model_temperature"
+                  checked={editingModel?.temperature != null}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      // 启用时设置默认值 0.5
+                      setEditingModel((prev) => prev ? { ...prev, temperature: 0.5 } : null)
+                    } else {
+                      // 禁用时清除温度
+                      setEditingModel((prev) => prev ? { ...prev, temperature: null } : null)
+                    }
+                  }}
+                />
+              </div>
+              
+              {editingModel?.temperature != null && (
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm">温度值</Label>
+                    <span className="text-sm font-medium tabular-nums">{editingModel.temperature.toFixed(1)}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">0</span>
+                    <Slider
+                      value={[editingModel.temperature]}
+                      onValueChange={(values) =>
+                        setEditingModel((prev) =>
+                          prev ? { ...prev, temperature: values[0] } : null
+                        )
+                      }
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      className="flex-1"
+                    />
+                    <span className="text-xs text-muted-foreground">1</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    较低的温度（0.1-0.3）产生更确定的输出，较高的温度（0.7-1.0）产生更多样化的输出
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center space-x-2">
               <Switch
                 id="force_stream_mode"
@@ -1580,6 +1637,17 @@ export function ModelConfigPage() {
                 强制流式输出模式
               </Label>
             </div>
+
+            {/* 额外参数编辑器 */}
+            <KeyValueEditor
+              value={editingModel?.extra_params || {}}
+              onChange={(params) =>
+                setEditingModel((prev) =>
+                  prev ? { ...prev, extra_params: params } : null
+                )
+              }
+              placeholder="添加额外参数（如 enable_thinking、top_p 等）..."
+            />
           </div>
 
           <DialogFooter>
@@ -1729,6 +1797,30 @@ function TaskConfigCard({
               />
             </div>
           )}
+        </div>
+
+        {/* 慢请求阈值 */}
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between">
+            <Label>慢请求阈值 (秒)</Label>
+            <span className="text-xs text-muted-foreground">超时警告</span>
+          </div>
+          <Input
+            type="number"
+            step="1"
+            min="1"
+            value={taskConfig.slow_threshold ?? 15}
+            onChange={(e) => {
+              const value = parseInt(e.target.value)
+              if (!isNaN(value) && value >= 1) {
+                onChange('slow_threshold', value)
+              }
+            }}
+            placeholder="15"
+          />
+          <p className="text-xs text-muted-foreground">
+            模型响应时间超过此阈值将输出警告日志
+          </p>
         </div>
       </div>
     </div>
