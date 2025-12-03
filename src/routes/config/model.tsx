@@ -75,6 +75,7 @@ interface ModelInfo {
   price_in: number | null
   price_out: number | null
   temperature?: number | null  // 模型级别温度，覆盖任务配置中的温度
+  max_tokens?: number | null   // 模型级别最大token数，覆盖任务配置中的max_tokens
   force_stream_mode?: boolean
   extra_params?: Record<string, unknown>
 }
@@ -537,6 +538,7 @@ export function ModelConfigPage() {
         price_in: 0,
         price_out: 0,
         temperature: null,
+        max_tokens: null,
         force_stream_mode: false,
         extra_params: {},
       }
@@ -1618,6 +1620,55 @@ export function ModelConfigPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     较低的温度（0.1-0.3）产生更确定的输出，较高的温度（0.7-1.0）产生更多样化的输出
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 模型级别最大 Token */}
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enable_model_max_tokens" className="cursor-pointer">自定义最大 Token</Label>
+                  <p className="text-xs text-muted-foreground">
+                    启用后将覆盖「为模型分配功能」中的任务最大 Token 配置
+                  </p>
+                </div>
+                <Switch
+                  id="enable_model_max_tokens"
+                  checked={editingModel?.max_tokens != null}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      // 启用时设置默认值 2048
+                      setEditingModel((prev) => prev ? { ...prev, max_tokens: 2048 } : null)
+                    } else {
+                      // 禁用时清除
+                      setEditingModel((prev) => prev ? { ...prev, max_tokens: null } : null)
+                    }
+                  }}
+                />
+              </div>
+              
+              {editingModel?.max_tokens != null && (
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm">最大 Token 数</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="128000"
+                      value={editingModel.max_tokens}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value)
+                        if (!isNaN(val) && val >= 1) {
+                          setEditingModel((prev) => prev ? { ...prev, max_tokens: val } : null)
+                        }
+                      }}
+                      className="w-28 h-8 text-sm"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    限制模型单次输出的最大 token 数量，不同模型支持的上限不同
                   </p>
                 </div>
               )}
